@@ -10,4 +10,6 @@ export interface ClothingItem {
 export interface StyleRecommendation {
     styleName: string;
     description: string;
+    topId?: number;
+    bottomId?: number;
 }

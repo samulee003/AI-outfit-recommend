@@ -2,10 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { UploadIcon, UserIcon } from './icons';
 
 interface VirtualModelUploaderProps {
+  title: string;
   onModelUpload: (base64: string, mimeType: string) => void;
 }
 
-export const VirtualModelUploader: React.FC<VirtualModelUploaderProps> = ({ onModelUpload }) => {
+export const VirtualModelUploader: React.FC<VirtualModelUploaderProps> = ({ title, onModelUpload }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +37,7 @@ export const VirtualModelUploader: React.FC<VirtualModelUploaderProps> = ({ onMo
 
   return (
     <div className="bg-base-100 p-6 rounded-2xl shadow-lg border border-base-300">
-      <h2 className="text-xl font-bold text-gray-800 mb-1">1. Create Your Model</h2>
+      <h2 className="text-xl font-bold text-gray-800 mb-1">{title}</h2>
       <p className="text-sm text-gray-500 mb-4">Upload a full-body photo to begin.</p>
       
       <div className="relative border-2 border-dashed border-base-300 rounded-xl p-4 text-center group hover:border-brand-secondary transition-colors duration-300">
