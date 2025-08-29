@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生成測試圖片</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .image-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .test-image {
+            width: 100%;
+            height: 200px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%), 
+                        linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #f0f0f0 75%), 
+                        linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .person-image {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .clothing-image {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .download-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .download-btn:hover {
+            background: #45a049;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ AI 虛擬衣櫃測試圖片生成器</h1>
+    
+    <div class="instructions">
+        <h3>使用說明：</h3>
+        <ol>
+            <li>點擊下方的「下載」按鈕來保存測試圖片</li>
+            <li>將這些圖片用於測試虛擬試衣功能</li>
+            <li>人物照片用於虛擬試衣，服裝照片用於建立衣櫃</li>
+            <li>你也可以使用自己的照片進行測試</li>
+        </ol>
+    </div>
+
+    <h2>👤 人物照片 (用於虛擬試衣)</h2>
+    <div class="image-container">
+        <div class="image-card">
+            <div class="test-image person-image">
+                <div>
+                    <div style="font-size: 48px;">👤</div>
+                    <div>測試人物 1</div>
+                    <div style="font-size: 12px;">正面站立</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('person-1', '👤 測試人物 1\\n正面站立姿勢\\n適合虛擬試衣', '#667eea')">下載 person-1.png</button>
+        </div>
+        
+        <div class="image-card">
+            <div class="test-image person-image">
+                <div>
+                    <div style="font-size: 48px;">🧑‍💼</div>
+                    <div>測試人物 2</div>
+                    <div style="font-size: 12px;">商務裝扮</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('person-2', '🧑‍💼 測試人物 2\\n商務裝扮\\n適合正式服裝測試', '#764ba2')">下載 person-2.png</button>
+        </div>
+        
+        <div class="image-card">
+            <div class="test-image person-image">
+                <div>
+                    <div style="font-size: 48px;">👩</div>
+                    <div>測試人物 3</div>
+                    <div style="font-size: 12px;">休閒裝扮</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('person-3', '👩 測試人物 3\\n休閒裝扮\\n適合日常服裝測試', '#9c27b0')">下載 person-3.png</button>
+        </div>
+    </div>
+
+    <h2>👕 服裝照片 (用於衣櫃管理)</h2>
+    <div class="image-container">
+        <div class="image-card">
+            <div class="test-image clothing-image">
+                <div>
+                    <div style="font-size: 48px;">👔</div>
+                    <div>白色襯衫</div>
+                    <div style="font-size: 12px;">正式上衣</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('top-shirt', '👔 白色襯衫\\n正式商務襯衫\\n適合辦公室穿著', '#f093fb')">下載 top-shirt.png</button>
+        </div>
+        
+        <div class="image-card">
+            <div class="test-image clothing-image">
+                <div>
+                    <div style="font-size: 48px;">👕</div>
+                    <div>藍色T恤</div>
+                    <div style="font-size: 12px;">休閒上衣</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('top-tshirt', '👕 藍色T恤\\n休閒棉質T恤\\n日常穿著', '#f5576c')">下載 top-tshirt.png</button>
+        </div>
+        
+        <div class="image-card">
+            <div class="test-image clothing-image">
+                <div>
+                    <div style="font-size: 48px;">🧥</div>
+                    <div>黑色毛衣</div>
+                    <div style="font-size: 12px;">保暖上衣</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('top-sweater', '🧥 黑色毛衣\\n保暖針織毛衣\\n秋冬穿著', '#ff6b6b')">下載 top-sweater.png</button>
+        </div>
+        
+        <div class="image-card">
+            <div class="test-image clothing-image">
+                <div>
+                    <div style="font-size: 48px;">👖</div>
+                    <div>牛仔褲</div>
+                    <div style="font-size: 12px;">休閒下裝</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('bottom-jeans', '👖 牛仔褲\\n經典藍色牛仔褲\\n百搭休閒', '#4ecdc4')">下載 bottom-jeans.png</button>
+        </div>
+        
+        <div class="image-card">
+            <div class="test-image clothing-image">
+                <div>
+                    <div style="font-size: 48px;">👔</div>
+                    <div>黑色長褲</div>
+                    <div style="font-size: 12px;">正式下裝</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('bottom-pants', '👔 黑色長褲\\n正式西裝褲\\n商務穿著', '#45b7d1')">下載 bottom-pants.png</button>
+        </div>
+        
+        <div class="image-card">
+            <div class="test-image clothing-image">
+                <div>
+                    <div style="font-size: 48px;">👗</div>
+                    <div>短裙</div>
+                    <div style="font-size: 12px;">時尚下裝</div>
+                </div>
+            </div>
+            <button class="download-btn" onclick="downloadImage('bottom-skirt', '👗 短裙\\n時尚A字短裙\\n優雅穿著', '#f39c12')">下載 bottom-skirt.png</button>
+        </div>
+    </div>
+
+    <script>
+        function downloadImage(filename, text, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+            
+            // 背景漸層
+            const gradient = ctx.createLinearGradient(0, 0, 400, 400);
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(1, adjustBrightness(color, -30));
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 400, 400);
+            
+            // 添加紋理
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            for (let i = 0; i < 50; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * 400, Math.random() * 400, Math.random() * 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // 文字
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            
+            const lines = text.split('\\n');
+            const startY = 200 - (lines.length * 15);
+            
+            lines.forEach((line, index) => {
+                ctx.fillText(line, 200, startY + (index * 40));
+            });
+            
+            // 下載
+            const link = document.createElement('a');
+            link.download = filename + '.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        function adjustBrightness(hex, percent) {
+            const num = parseInt(hex.replace("#", ""), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+        }
+    </script>
+</body>
+</html>
