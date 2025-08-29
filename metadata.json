@@ -1,0 +1,5 @@
+{
+  "name": "AI Virtual Wardrobe",
+  "description": "An intelligent wardrobe management system featuring a virtual try-on powered by Google Gemini. Users can upload their photo to create a virtual model, select clothing items, and visualize different outfits in real-time.",
+  "requestFramePermissions": []
+}
