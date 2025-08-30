@@ -1,5 +1,7 @@
 {
-  "name": "AI Virtual Wardrobe",
-  "description": "An intelligent wardrobe management system featuring a virtual try-on powered by Google Gemini. Users can upload their photo to create a virtual model, select clothing items, and visualize different outfits in real-time.",
-  "requestFramePermissions": []
+  "name": "穿搭魔法師",
+  "description": "一個由 Google Gemini 驅動的智慧衣櫥管理系統，具備虛擬試穿功能。使用者可以上傳自己的照片來建立虛擬模型，選擇衣物單品，並即時預覽不同的穿搭效果。",
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

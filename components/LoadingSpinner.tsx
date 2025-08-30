@@ -1,7 +1,12 @@
 import React from 'react';
 
-export const LoadingSpinner: React.FC = () => {
+interface LoadingSpinnerProps {
+  variant?: 'primary' | 'light';
+}
+
+export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ variant = 'primary' }) => {
+  const colorClass = variant === 'light' ? 'border-white' : 'border-primary';
   return (
-    <div className="w-6 h-6 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
+    <div className={`w-6 h-6 border-4 border-t-transparent ${colorClass} rounded-full animate-spin`}></div>
   );
 };

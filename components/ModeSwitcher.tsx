@@ -8,7 +8,7 @@ interface ModeSwitcherProps {
   onModeChange: (mode: AppMode) => void;
 }
 
-const ModeButton: React.FC<{
+const ModeOption: React.FC<{
   label: string;
   description: string;
   icon: React.ReactNode;
@@ -17,19 +17,17 @@ const ModeButton: React.FC<{
 }> = ({ label, description, icon, isActive, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex-1 p-4 rounded-lg text-left transition-all duration-300 border-2 ${
-      isActive
-        ? 'bg-brand-light border-brand-secondary shadow-md'
-        : 'bg-base-200 border-transparent hover:bg-base-300 hover:border-base-300'
-    }`}
+    className="relative z-10 w-full text-left p-2 rounded-lg transition-colors duration-300"
+    role="tab"
+    aria-selected={isActive}
   >
-    <div className="flex items-center space-x-3">
-      <div className={`p-2 rounded-full ${isActive ? 'bg-brand-secondary text-white' : 'bg-gray-300 text-gray-600'}`}>
+    <div className="flex items-center space-x-4 p-2">
+      <div className={`p-2 rounded-full transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
         {icon}
       </div>
       <div>
-        <p className={`font-bold ${isActive ? 'text-brand-dark' : 'text-gray-800'}`}>{label}</p>
-        <p className={`text-xs ${isActive ? 'text-brand-dark' : 'text-gray-600'}`}>{description}</p>
+        <p className={`font-bold text-sm transition-colors ${isActive ? 'text-primary' : 'text-foreground'}`}>{label}</p>
+        <p className={`text-xs transition-colors ${isActive ? 'text-primary/90' : 'text-muted-foreground'}`}>{description}</p>
       </div>
     </div>
   </button>
@@ -38,21 +36,31 @@ const ModeButton: React.FC<{
 
 export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ currentMode, onModeChange }) => {
   return (
-    <div className="bg-base-100 p-2 rounded-xl shadow-lg border border-base-300 flex items-center space-x-2">
-       <ModeButton 
-         label="基礎版"
-         description="AI 一鍵生成穿搭"
-         icon={<CubeTransparentIcon className="w-5 h-5" />}
-         isActive={currentMode === 'basic'}
-         onClick={() => onModeChange('basic')}
-       />
-        <ModeButton 
-         label="進階版"
-         description="管理個人衣櫥"
-         icon={<CubeIcon className="w-5 h-5" />}
-         isActive={currentMode === 'advanced'}
-         onClick={() => onModeChange('advanced')}
-       />
+    <div className="relative bg-muted p-1 rounded-xl flex items-center" role="tablist">
+      <span
+        className={`absolute top-1 bottom-1 w-[calc(50%-2px)] bg-card rounded-lg shadow-sm transition-transform duration-300 ease-in-out transform ${
+            currentMode === 'advanced' ? 'translate-x-full' : 'translate-x-0'
+        }`}
+        aria-hidden="true"
+      />
+      <div className="w-1/2">
+        <ModeOption
+            label="基礎版"
+            description="AI 一鍵生成穿搭"
+            icon={<CubeTransparentIcon className="w-5 h-5" />}
+            isActive={currentMode === 'basic'}
+            onClick={() => onModeChange('basic')}
+        />
+      </div>
+      <div className="w-1/2">
+        <ModeOption
+            label="進階版"
+            description="管理個人衣櫥"
+            icon={<CubeIcon className="w-5 h-5" />}
+            isActive={currentMode === 'advanced'}
+            onClick={() => onModeChange('advanced')}
+        />
+      </div>
     </div>
   );
 };

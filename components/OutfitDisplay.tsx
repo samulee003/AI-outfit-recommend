@@ -1,5 +1,5 @@
 import React from 'react';
-import { SparklesIcon, ExclamationIcon, UserCircleIcon, DownloadIcon } from './icons';
+import { SparklesIcon, ExclamationIcon, UserCircleIcon, DownloadIcon, BookmarkIcon, ShareIcon, ShoppingBagIcon, ZoomInIcon } from './icons';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface OutfitDisplayProps {
@@ -8,30 +8,68 @@ interface OutfitDisplayProps {
   generatedOutfitImage: string | null;
   generatedOutfitText: string | null;
   onGenerate: () => void;
+  onSave: () => void;
+  onFindSimilar: () => void;
+  onImagePreview: (imageUrl: string) => void;
   isLoading: boolean;
   error: string | null;
   isActionable: boolean;
 }
 
-const ImagePanel: React.FC<{ title: string; imageSrc: string | null; onDownload?: () => void; children?: React.ReactNode }> = ({ title, imageSrc, onDownload, children }) => (
-  <div className="relative flex-1 flex flex-col items-center p-4 bg-base-200 rounded-lg">
-    <h3 className="text-sm font-semibold text-gray-500 mb-2">{title}</h3>
-    <div className="w-full aspect-[3/4] rounded-lg bg-base-300 flex items-center justify-center overflow-hidden">
+const dataURLtoFile = (dataurl: string, filename: string): File | null => {
+    const arr = dataurl.split(',');
+    if (arr.length < 2) return null;
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) return null;
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, {type:mime});
+}
+
+const ActionButton: React.FC<{ onClick: () => void; 'aria-label': string; children: React.ReactNode; }> = ({ onClick, 'aria-label': ariaLabel, children }) => (
+    <button
+        onClick={onClick}
+        className="p-2 bg-black/40 text-white rounded-full hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-muted focus:ring-white transition-all"
+        aria-label={ariaLabel}
+    >
+        {children}
+    </button>
+);
+
+const ImagePanel: React.FC<{ 
+  title: string; 
+  imageSrc: string | null; 
+  children?: React.ReactNode;
+  isClickable?: boolean;
+  onClick?: () => void;
+}> = ({ title, imageSrc, children, isClickable, onClick }) => (
+  <div className="relative flex-1 flex flex-col items-center p-3 bg-muted rounded-xl">
+    <h3 className="text-sm font-semibold text-muted-foreground mb-2">{title}</h3>
+    <div className="w-full aspect-[3/4] rounded-lg bg-background/50 flex items-center justify-center overflow-hidden">
       {imageSrc ? (
-        <img src={imageSrc} alt={title} className="w-full h-full object-contain" />
+        isClickable ? (
+          <button 
+            onClick={onClick}
+            className="w-full h-full relative group focus:outline-none"
+            aria-label="放大預覽圖片"
+          >
+            <img src={imageSrc} alt={title} className="w-full h-full object-contain" />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity flex items-center justify-center">
+                <ZoomInIcon className="w-12 h-12 text-white" />
+            </div>
+          </button>
+        ) : (
+          <img src={imageSrc} alt={title} className="w-full h-full object-contain" />
+        )
       ) : (
         children
       )}
     </div>
-    {imageSrc && onDownload && (
-        <button 
-            onClick={onDownload}
-            className="absolute top-3 right-3 p-2 bg-black bg-opacity-40 text-white rounded-full hover:bg-opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-base-200 focus:ring-white transition-all"
-            aria-label="Download generated image"
-        >
-            <DownloadIcon className="w-5 h-5" />
-        </button>
-    )}
   </div>
 );
 
@@ -42,11 +80,14 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
   generatedOutfitImage,
   generatedOutfitText,
   onGenerate,
+  onSave,
+  onFindSimilar,
+  onImagePreview,
   isLoading,
   error,
   isActionable,
 }) => {
-  const isBasicMode = title.includes('Get AI Outfit');
+  const isBasicMode = title.includes('獲取 AI 穿搭');
 
   const handleDownload = () => {
     if (!generatedOutfitImage) return;
@@ -57,56 +98,111 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
     link.click();
     document.body.removeChild(link);
   };
+
+  const handleShare = async () => {
+      if (!generatedOutfitImage || !generatedOutfitText) return;
+
+      const imageFile = dataURLtoFile(generatedOutfitImage, `ai-outfit-${Date.now()}.png`);
+      if (!imageFile) {
+          alert("分享失敗：無法處理圖片。");
+          return;
+      }
+      
+      const shareData = {
+          title: "我的 AI 穿搭",
+          text: `快來看看我的新造型！\n\n${generatedOutfitText}\n\n由「穿搭魔法師」生成`,
+          files: [imageFile],
+      };
+
+      if (navigator.canShare && navigator.canShare(shareData)) {
+          try {
+              await navigator.share(shareData);
+          } catch (err) {
+              console.error("分享失敗:", err);
+          }
+      } else {
+          alert("您的瀏覽器不支援分享功能。");
+      }
+  };
   
   return (
-    <div className="bg-base-100 p-6 rounded-2xl shadow-lg border border-base-300 h-full flex flex-col">
-      <h2 className="text-xl font-bold text-gray-800 mb-1">{title}</h2>
-      <p className="text-sm text-gray-500 mb-4">
-        {isBasicMode ? "Let AI find the perfect style for you." : "See your new style come to life!"}
+    <div className="bg-card p-6 rounded-2xl shadow-subtle h-full flex flex-col">
+      <h2 className="text-xl font-bold text-foreground mb-1">{title}</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        {isBasicMode ? "讓 AI 為您找到完美風格。" : "見證您的新風格誕生！"}
       </p>
 
       <div className="flex flex-col md:flex-row gap-4 flex-grow mb-4">
-        <ImagePanel title="Your Model" imageSrc={userModelImage}>
-           {!userModelImage && <UserCircleIcon className="w-24 h-24 text-gray-400" />}
+        <ImagePanel title="您的模型" imageSrc={userModelImage}>
+           {!userModelImage && <UserCircleIcon className="w-24 h-24 text-muted-foreground/30" />}
         </ImagePanel>
-        <ImagePanel 
-            title="AI Generated Outfit" 
-            imageSrc={generatedOutfitImage}
-            onDownload={handleDownload}
-        >
-          {isLoading && (
-             <div className="flex flex-col items-center justify-center text-center text-gray-500">
-                <LoadingSpinner />
-                <p className="mt-2 text-sm font-medium">Generating your look...</p>
-                <p className="text-xs">This may take a moment.</p>
-             </div>
-          )}
-          {!isLoading && !generatedOutfitImage && <SparklesIcon className="w-24 h-24 text-gray-400" />}
-        </ImagePanel>
+        <div className="relative flex-1">
+            <ImagePanel 
+                title="AI 生成穿搭" 
+                imageSrc={generatedOutfitImage}
+                isClickable={!!generatedOutfitImage}
+                onClick={() => generatedOutfitImage && onImagePreview(generatedOutfitImage)}
+            >
+              {isLoading && (
+                 <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
+                    <LoadingSpinner />
+                    <p className="mt-2 text-sm font-medium">正在生成您的造型...</p>
+                    <p className="text-xs">這可能需要一些時間。</p>
+                 </div>
+              )}
+              {!isLoading && !generatedOutfitImage && <SparklesIcon className="w-24 h-24 text-muted-foreground/30" />}
+            </ImagePanel>
+             {generatedOutfitImage && (
+                <div className="absolute top-3 right-3 flex flex-col space-y-2">
+                    <ActionButton onClick={handleDownload} aria-label="下載生成圖片">
+                        <DownloadIcon className="w-5 h-5" />
+                    </ActionButton>
+                    <ActionButton onClick={onSave} aria-label="儲存穿搭">
+                        <BookmarkIcon className="w-5 h-5" />
+                    </ActionButton>
+                    {navigator.share && (
+                        <ActionButton onClick={handleShare} aria-label="分享穿搭">
+                            <ShareIcon className="w-5 h-5" />
+                        </ActionButton>
+                    )}
+                </div>
+            )}
+        </div>
       </div>
 
       {error && (
-        <div className="my-4 p-3 bg-red-100 border border-red-200 text-red-800 rounded-lg flex items-start space-x-2">
+        <div className="my-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-start space-x-2">
           <ExclamationIcon className="h-5 w-5 mt-0.5 flex-shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
       )}
 
       {generatedOutfitText && !error && (
-        <div className="my-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
-            <p className="text-sm font-semibold mb-1">AI Assistant Note:</p>
-            <p className="text-sm">{generatedOutfitText}</p>
+        <div className="my-4 p-3 bg-primary/10 border border-primary/20 text-primary/90 rounded-lg">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-semibold mb-1 text-primary">AI 助理筆記：</p>
+                <p className="text-sm whitespace-pre-wrap">{generatedOutfitText}</p>
+              </div>
+              <button 
+                onClick={onFindSimilar}
+                className="flex-shrink-0 ml-4 -mt-1 -mr-1 flex items-center space-x-1.5 text-xs font-semibold text-primary bg-primary/20 hover:bg-primary/30 rounded-full py-1 px-2.5 transition-colors"
+              >
+                <ShoppingBagIcon className="w-3.5 h-3.5" />
+                <span>尋找相似單品</span>
+              </button>
+            </div>
         </div>
       )}
 
       <button
         onClick={onGenerate}
         disabled={!isActionable || isLoading}
-        className={`w-full flex items-center justify-center space-x-2 text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-opacity-50
-          ${!isActionable || isLoading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-brand-primary text-white hover:bg-brand-dark focus:ring-brand-secondary'}`}
+        className={`w-full flex items-center justify-center space-x-2 text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/50
+          ${!isActionable || isLoading ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
       >
-        {isLoading ? <LoadingSpinner /> : <SparklesIcon className="h-6 w-6" />}
-        <span>{isLoading ? 'Generating...' : (isBasicMode ? 'Get AI Outfit' : 'Visualize Outfit')}</span>
+        {isLoading ? <LoadingSpinner variant="light" /> : <SparklesIcon className="h-6 w-6" />}
+        <span>{isLoading ? '生成中...' : (isBasicMode ? '獲取 AI 穿搭' : '預覽穿搭')}</span>
       </button>
     </div>
   );

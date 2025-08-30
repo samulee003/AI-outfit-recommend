@@ -3,30 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Virtual Wardrobe</title>
+    <title>穿搭魔法師</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      *:focus-visible {
+        outline: 2px solid hsl(221.2, 83.2%, 53.3%);
+        outline-offset: 2px;
+        border-radius: 0.5rem;
+      }
+    </style>
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              'brand-primary': '#1e40af',
-              'brand-secondary': '#3b82f6',
-              'brand-light': '#dbeafe',
-              'brand-dark': '#1e3a8a',
-              'brand-text': '#f0f9ff',
-              'base-100': '#ffffff',
-              'base-200': '#f3f4f6',
-              'base-300': '#e5e7eb',
+              border: 'hsl(214.3, 31.8%, 91.4%)',
+              input: 'hsl(214.3, 31.8%, 91.4%)',
+              ring: 'hsl(221.2, 83.2%, 53.3%)',
+              background: 'hsl(210, 40%, 98%)',
+              foreground: 'hsl(222.2, 84%, 4.9%)',
+              primary: {
+                DEFAULT: 'hsl(221.2, 83.2%, 53.3%)',
+                foreground: 'hsl(210, 40%, 98%)',
+              },
+              secondary: {
+                DEFAULT: 'hsl(210, 40%, 96.1%)',
+                foreground: 'hsl(222.2, 84%, 4.9%)',
+              },
+              destructive: {
+                DEFAULT: 'hsl(0, 84.2%, 60.2%)',
+                foreground: 'hsl(210, 40%, 98%)',
+              },
+              muted: {
+                DEFAULT: 'hsl(210, 40%, 96.1%)',
+                foreground: 'hsl(215.4, 16.3%, 46.9%)',
+              },
+              accent: {
+                DEFAULT: 'hsl(210, 40%, 96.1%)',
+                foreground: 'hsl(222.2, 84%, 4.9%)',
+              },
+              card: {
+                DEFAULT: 'hsl(0, 0%, 100%)',
+                foreground: 'hsl(222.2, 84%, 4.9%)',
+              },
+            },
+            borderRadius: {
+              '2xl': '1rem',
+              xl: '0.75rem',
+              lg: '0.5rem',
+              md: `calc(0.5rem - 2px)`,
+              sm: `calc(0.5rem - 4px)`,
+            },
+            boxShadow: {
+              'subtle': '0 4px 12px rgb(0 0 0 / 0.05)',
             },
             animation: {
               'fade-in': 'fadeIn 0.5s ease-in-out',
-              'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             },
             keyframes: {
               fadeIn: {
-                '0%': { opacity: 0 },
-                '100%': { opacity: 1 },
+                '0%': { opacity: 0, transform: 'translateY(10px)' },
+                '100%': { opacity: 1, transform: 'translateY(0)' },
               },
             },
           },
@@ -44,7 +81,7 @@
 }
 </script>
 </head>
-  <body class="bg-base-200">
+  <body class="bg-background">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
