@@ -26,3 +26,19 @@ export interface ShoppingAssistantResult {
   itemName: string;
   searchQuery: string;
 }
+
+export interface UpgradeSuggestion {
+  suggestion: string;
+  upgradedImageBase64: string;
+}
+
+export interface IdentifiedItem {
+  description: string;
+  type: ClothingType;
+}
+
+export interface OotdAnalysisResult {
+  critique: string;
+  upgradeSuggestions: UpgradeSuggestion[];
+  identifiedItems: IdentifiedItem[];
+}

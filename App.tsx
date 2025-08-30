@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { VirtualModelUploader } from './components/VirtualModelUploader';
@@ -9,11 +7,68 @@ import { ModeSwitcher } from './components/ModeSwitcher';
 import { ShoppingAssistantModal } from './components/ShoppingAssistantModal';
 import { OnboardingGuide } from './components/OnboardingGuide';
 import { ImagePreviewModal } from './components/ImagePreviewModal';
-import { generateVirtualTryOn, getStyleRecommendations, generateAndRecommendOutfit, findSimilarItems } from './services/geminiService';
-import { ClothingItem, StyleRecommendation, SavedOutfit, ShoppingAssistantResult } from './types';
+import { OotdAnalyzer } from './components/OotdAnalyzer';
+import { generateVirtualTryOn, getStyleRecommendations, generateAndRecommendOutfit, findSimilarItems, analyzeOotd } from './services/geminiService';
+import { ClothingItem, StyleRecommendation, SavedOutfit, ShoppingAssistantResult, OotdAnalysisResult } from './types';
+import { PreviewModal } from './components/PreviewModal';
+import { ChatBubbleIcon } from './components/icons';
+
+// --- Feedback Modal Component ---
+interface FeedbackModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+
+    const feedbackEmail = "feedback.style.magician@example.com";
+    const emailSubject = encodeURIComponent("穿搭魔法師 App 回饋與建議");
+    const emailBody = encodeURIComponent(`嗨，穿搭魔法師團隊：\n\n我想分享一些關於 App 的想法...\n\n`);
+    const mailtoLink = `mailto:${feedbackEmail}?subject=${emailSubject}&body=${emailBody}`;
+
+    const handleSendFeedback = () => {
+        window.location.href = mailtoLink;
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+            <div 
+                className="bg-card rounded-2xl shadow-xl w-full max-w-md space-y-4 p-6 relative"
+                onClick={e => e.stopPropagation()}
+            >
+                <button 
+                    onClick={onClose} 
+                    className="absolute top-3 right-3 text-muted-foreground hover:text-foreground text-2xl"
+                    aria-label="關閉"
+                >
+                    &times;
+                </button>
+                
+                <div className="text-center">
+                    <ChatBubbleIcon className="h-12 w-12 text-primary mx-auto mb-2" />
+                    <h2 className="text-2xl font-bold text-foreground">意見回饋</h2>
+                    <p className="text-muted-foreground mt-1">您的想法對我們至關重要！</p>
+                </div>
+                
+                <div className="text-center p-4 bg-muted rounded-lg border border-border">
+                     <p className="text-sm font-semibold text-foreground">有任何建議或發現問題嗎？</p>
+                     <p className="text-xs text-muted-foreground mt-1 mb-3">請透過電子郵件告訴我們，幫助我們變得更好。</p>
+                     <button 
+                        onClick={handleSendFeedback}
+                        className="inline-block py-2 px-6 bg-primary text-primary-foreground font-bold rounded-lg shadow-md hover:bg-primary/90 transition-all"
+                    >
+                        傳送回饋
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const App: React.FC = () => {
-  const [appMode, setAppMode] = useState<'basic' | 'advanced'>('advanced');
+  const [appMode, setAppMode] = useState<'basic' | 'advanced' | 'ootd'>('basic');
   const [userModel, setUserModel] = useState<{ base64: string; mimeType: string; } | null>(null);
   const [closet, setCloset] = useState<ClothingItem[]>([]);
   const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>([]);
@@ -41,6 +96,18 @@ const App: React.FC = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState<boolean>(false);
 
+  // OOTD Analyzer State
+  const [isAnalyzingOotd, setIsAnalyzingOotd] = useState<boolean>(false);
+  const [ootdAnalysisResult, setOotdAnalysisResult] = useState<OotdAnalysisResult | null>(null);
+  const [ootdError, setOotdError] = useState<string | null>(null);
+  
+  // Feedback Modal State
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
+
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewOutfit, setPreviewOutfit] = useState<SavedOutfit | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -75,6 +142,8 @@ const App: React.FC = () => {
     setGeneratedOutfitImage(null);
     setGeneratedOutfitText(null);
     setError(null);
+    setOotdAnalysisResult(null);
+    setOotdError(null);
   }, [appMode]);
   
   const handleOnboardingClose = () => {
@@ -290,21 +359,169 @@ const App: React.FC = () => {
     setIsImagePreviewOpen(false);
     setPreviewImageUrl(null);
   };
+  
+  const handleAnalyzeOotd = useCallback(async (base64: string, mimeType: string) => {
+    setIsAnalyzingOotd(true);
+    setOotdError(null);
+    setOotdAnalysisResult(null);
+    try {
+      const result = await analyzeOotd(base64, mimeType);
+      setOotdAnalysisResult(result);
+    } catch (err) {
+      console.error(err);
+      setOotdError(err instanceof Error ? err.message : "分析您的穿搭時發生未知錯誤。");
+    } finally {
+      setIsAnalyzingOotd(false);
+    }
+  }, []);
+
+  const handlePreviewRecommendation = useCallback(async (recommendation: StyleRecommendation) => {
+      if (!userModel) {
+        setError("請先上傳您的照片以建立虛擬模型。");
+        return;
+      }
+      
+      setIsPreviewModalOpen(true);
+      setIsPreviewLoading(true);
+      setPreviewError(null);
+      setPreviewOutfit(null);
+  
+      try {
+          const top = closet.find(item => item.id === recommendation.topId) || null;
+          const bottom = closet.find(item => item.id === recommendation.bottomId) || null;
+  
+          if (!top && !bottom) {
+              throw new Error("推薦中未找到有效的衣物。");
+          }
+  
+          const result = await generateVirtualTryOn(userModel, top, bottom);
+  
+          if (result.imageBase64 && result.text) {
+              setPreviewOutfit({
+                  id: crypto.randomUUID(),
+                  imageUrl: `data:image/png;base64,${result.imageBase64}`,
+                  text: result.text,
+                  createdAt: new Date().toISOString(),
+              });
+          } else {
+              throw new Error("無法生成預覽。 " + (result.text || ""));
+          }
+      } catch (err) {
+          const message = err instanceof Error ? err.message : "生成預覽時發生未知錯誤。";
+          setPreviewError(message);
+      } finally {
+          setIsPreviewLoading(false);
+      }
+  }, [userModel, closet]);
+
+  const handleClosePreviewModal = () => {
+      setIsPreviewModalOpen(false);
+  };
+
+  const handleSaveFromPreview = (outfit: SavedOutfit) => {
+      if (outfit) {
+          const updatedLookbook = [outfit, ...savedOutfits];
+          updateLookbookInStorage(updatedLookbook);
+      }
+      handleClosePreviewModal();
+  };
+  
+  const dataURLtoFile = (dataurl: string, filename: string): File | null => {
+      const arr = dataurl.split(',');
+      if (arr.length < 2) return null;
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      if (!mimeMatch) return null;
+      const mime = mimeMatch[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while(n--){
+          u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, {type:mime});
+  }
+
+  const addWatermark = (base64Image: string): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                const watermarkText = '由 穿搭魔法師 生成';
+                ctx.font = `${Math.max(14, canvas.width / 50)}px sans-serif`;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(watermarkText, canvas.width - 10, canvas.height - 10);
+            }
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            resolve(base64Image); // Return original image on error
+        };
+        img.src = base64Image;
+    });
+  };
+
+  const handleShareFromPreview = async (outfit: SavedOutfit) => {
+      if (!outfit) return;
+      
+      const watermarkedImage = await addWatermark(outfit.imageUrl);
+      const imageFile = dataURLtoFile(watermarkedImage, `ai-outfit-preview-${Date.now()}.png`);
+
+      if (!imageFile) {
+          alert("分享失敗：無法處理圖片。");
+          return;
+      }
+      const shareData = {
+          title: "我的 AI 推薦穿搭",
+          text: `快來看看「穿搭魔法師」為我推薦的新造型！\n\n${outfit.text}`,
+          files: [imageFile],
+      };
+
+      if (navigator.canShare && navigator.canShare(shareData)) {
+          try {
+              await navigator.share(shareData);
+          } catch (err) {
+              console.error("分享失敗:", err);
+          }
+      } else {
+          alert("您的瀏覽器不支援分享功能。");
+      }
+  };
+
+  const handleOpenFeedbackModal = () => setIsFeedbackModalOpen(true);
+  const handleCloseFeedbackModal = () => setIsFeedbackModalOpen(false);
+
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
       <OnboardingGuide isOpen={showOnboarding} onClose={handleOnboardingClose} />
-      <Header />
+      <Header onFeedbackClick={handleOpenFeedbackModal} />
       <main className="p-4 md:p-8 lg:p-12">
         <div className="container mx-auto max-w-7xl">
           <ModeSwitcher currentMode={appMode} onModeChange={setAppMode} />
           
-          {appMode === 'advanced' ? (
+          {appMode === 'ootd' ? (
+             <div className="mt-8 animate-fade-in">
+               <OotdAnalyzer 
+                  onAnalyze={handleAnalyzeOotd}
+                  onAddItemsToCloset={handleAddItemsToCloset}
+                  isLoading={isAnalyzingOotd}
+                  error={ootdError}
+                  result={ootdAnalysisResult}
+               />
+             </div>
+          ) : appMode === 'advanced' ? (
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8 animate-fade-in">
-                <div className="lg:col-span-4 space-y-8">
+                <div className="lg:col-span-5 space-y-8">
                   <VirtualModelUploader title="1. 建立您的模型" onModelUpload={handleModelUpload} />
                   <ClosetManager
-                    title="2. 管理您的衣櫥"
+                    title="2. 準備您的穿搭"
                     closet={closet}
                     savedOutfits={savedOutfits}
                     recommendations={recommendations}
@@ -321,9 +538,11 @@ const App: React.FC = () => {
                     selectedBottomId={selectedBottom?.id}
                     recommendationFeedback={recommendationFeedback}
                     onRecommendationFeedback={handleRecommendationFeedback}
+                    onPreviewRecommendation={handlePreviewRecommendation}
+                    onPreviewImage={handlePreviewImage}
                   />
                 </div>
-                <div className="lg:col-span-8">
+                <div className="lg:col-span-7">
                   <OutfitDisplay
                     title="3. 預覽您的穿搭"
                     userModelImage={userModel?.base64 ? `data:${userModel.mimeType};base64,${userModel.base64}` : null}
@@ -374,6 +593,19 @@ const App: React.FC = () => {
         isOpen={isImagePreviewOpen}
         imageUrl={previewImageUrl}
         onClose={handleCloseImagePreview}
+      />
+      <PreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={handleClosePreviewModal}
+        isLoading={isPreviewLoading}
+        error={previewError}
+        outfit={previewOutfit}
+        onSave={handleSaveFromPreview}
+        onShare={handleShareFromPreview}
+      />
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={handleCloseFeedbackModal}
       />
     </div>
   );

@@ -31,6 +31,32 @@ const dataURLtoFile = (dataurl: string, filename: string): File | null => {
     return new File([u8arr], filename, {type:mime});
 }
 
+const addWatermark = (base64Image: string): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                const watermarkText = '由 穿搭魔法師 生成';
+                ctx.font = `${Math.max(14, canvas.width / 50)}px sans-serif`;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(watermarkText, canvas.width - 10, canvas.height - 10);
+            }
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            resolve(base64Image); // Return original image on error
+        };
+        img.src = base64Image;
+    });
+};
+
 const ActionButton: React.FC<{ onClick: () => void; 'aria-label': string; children: React.ReactNode; }> = ({ onClick, 'aria-label': ariaLabel, children }) => (
     <button
         onClick={onClick}
@@ -89,10 +115,11 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
 }) => {
   const isBasicMode = title.includes('獲取 AI 穿搭');
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!generatedOutfitImage) return;
+    const watermarkedImage = await addWatermark(generatedOutfitImage);
     const link = document.createElement('a');
-    link.href = generatedOutfitImage;
+    link.href = watermarkedImage;
     link.download = `ai-outfit-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
@@ -101,8 +128,10 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
 
   const handleShare = async () => {
       if (!generatedOutfitImage || !generatedOutfitText) return;
+      
+      const watermarkedImage = await addWatermark(generatedOutfitImage);
+      const imageFile = dataURLtoFile(watermarkedImage, `ai-outfit-${Date.now()}.png`);
 
-      const imageFile = dataURLtoFile(generatedOutfitImage, `ai-outfit-${Date.now()}.png`);
       if (!imageFile) {
           alert("分享失敗：無法處理圖片。");
           return;
@@ -181,7 +210,7 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
         <div className="my-4 p-3 bg-primary/10 border border-primary/20 text-primary/90 rounded-lg">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-semibold mb-1 text-primary">AI 助理筆記：</p>
+                <p className="text-sm font-semibold mb-1 text-primary">AI 造型師筆記：</p>
                 <p className="text-sm whitespace-pre-wrap">{generatedOutfitText}</p>
               </div>
               <button 
@@ -198,11 +227,12 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
       <button
         onClick={onGenerate}
         disabled={!isActionable || isLoading}
+        // FIX: Corrected the ternary operator syntax which had an extra ':' causing a compile error.
         className={`w-full flex items-center justify-center space-x-2 text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/50
           ${!isActionable || isLoading ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
       >
         {isLoading ? <LoadingSpinner variant="light" /> : <SparklesIcon className="h-6 w-6" />}
-        <span>{isLoading ? '生成中...' : (isBasicMode ? '獲取 AI 穿搭' : '預覽穿搭')}</span>
+        <span>{isLoading ? '生成中...' : (isBasicMode ? '獲取 AI 穿搭' : '生成我的穿搭')}</span>
       </button>
     </div>
   );

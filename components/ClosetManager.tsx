@@ -1,8 +1,6 @@
-
-
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ClothingItem, ClothingType, StyleRecommendation, SavedOutfit } from '../types';
-import { PlusIcon, SparklesIcon, ExclamationIcon, UploadIcon, TrashIcon, MagicWandIcon, PencilIcon, ThumbUpIcon, ThumbDownIcon } from './icons';
+import { PlusIcon, SparklesIcon, ExclamationIcon, UploadIcon, TrashIcon, MagicWandIcon, PencilIcon, ThumbUpIcon, ThumbDownIcon, EyeIcon, WardrobeIcon, BookmarkIcon } from './icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { generateClothingItem, describeClothingItem } from '../services/geminiService';
 
@@ -11,8 +9,8 @@ interface MemoizedClothingItemProps {
     item: ClothingItem;
     isSelected: boolean;
     onSelectItem: (item: ClothingItem) => void;
-    onEditClick: (e: React.MouseEvent, item: ClothingItem) => void;
-    onDeleteClick: (e: React.MouseEvent, itemId: string) => void;
+    onEditClick: (item: ClothingItem) => void;
+    onDeleteClick: (itemId: string) => void;
 }
 
 interface MemoizedRecommendationProps {
@@ -20,11 +18,13 @@ interface MemoizedRecommendationProps {
     feedback: 'liked' | 'disliked' | undefined;
     onSelect: (rec: StyleRecommendation) => void;
     onFeedback: (styleName: string, feedback: 'liked' | 'disliked') => void;
+    onPreview: (rec: StyleRecommendation) => void;
 }
 
 interface MemoizedSavedOutfitProps {
     outfit: SavedOutfit;
     onDelete: (outfitId: string) => void;
+    onPreview: (imageUrl: string) => void;
 }
 
 
@@ -40,6 +40,8 @@ interface ClosetManagerProps {
     onGetRecommendations: () => void;
     onSelectRecommendation: (recommendation: StyleRecommendation) => void;
     onSelectItem: (item: ClothingItem) => void;
+    onPreviewRecommendation: (recommendation: StyleRecommendation) => void;
+    onPreviewImage: (imageUrl: string) => void;
     isRecommending: boolean;
     error: string | null;
     selectedTopId?: string | null;
@@ -58,6 +60,9 @@ interface StagedItem {
     isAnalyzing: boolean;
     analysisError: string | null;
 }
+
+type ActiveTab = 'closet' | 'advisor' | 'generator' | 'lookbook';
+
 
 const parseDataUrl = (dataUrl: string): { base64: string; mimeType: string } | null => {
     const match = dataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
@@ -126,7 +131,7 @@ const ItemUploaderForm: React.FC<{ onAddItems: (items: Omit<ClothingItem, 'id'>[
         });
     };
 
-    const processFiles = async (files: FileList) => {
+    const processFiles = useCallback(async (files: FileList) => {
         const filesToProcess: File[] = [];
         const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
         let processingError = '';
@@ -140,8 +145,8 @@ const ItemUploaderForm: React.FC<{ onAddItems: (items: Omit<ClothingItem, 'id'>[
                 processingError = '檔案類型無效。請使用 JPG、PNG、WEBP 或 GIF。';
                 return;
             }
-            if (file.size > 2 * 1024 * 1024) { // 2MB limit
-                processingError = '圖片必須小於 2MB。';
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                processingError = '圖片必須小於 5MB。';
                 return;
             }
             filesToProcess.push(file);
@@ -189,15 +194,15 @@ const ItemUploaderForm: React.FC<{ onAddItems: (items: Omit<ClothingItem, 'id'>[
                 ));
             }
         }
-    };
+    }, [stagedItems.length]);
     
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
             processFiles(event.target.files);
         }
-    };
+    }, [processFiles]);
     
-    const handleDragEvents = (e: React.DragEvent<HTMLDivElement>, action: 'over' | 'leave' | 'drop') => {
+    const handleDragEvents = useCallback((e: React.DragEvent<HTMLDivElement>, action: 'over' | 'leave' | 'drop') => {
         e.preventDefault();
         e.stopPropagation();
         if (action === 'over') setIsDragging(true);
@@ -206,7 +211,7 @@ const ItemUploaderForm: React.FC<{ onAddItems: (items: Omit<ClothingItem, 'id'>[
             setIsDragging(false);
             processFiles(e.dataTransfer.files);
         }
-    };
+    }, [processFiles]);
 
     const updateItem = (id: number, field: 'description' | 'type', value: string) => {
         setStagedItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
@@ -268,7 +273,7 @@ const ItemUploaderForm: React.FC<{ onAddItems: (items: Omit<ClothingItem, 'id'>[
                 <p className="mt-2 text-sm text-center text-foreground">
                     <span className="font-semibold text-primary">點擊上傳</span> 或拖放檔案
                 </p>
-                <p className="text-xs text-muted-foreground">最多 10 張圖片 (每張最大 2MB)</p>
+                <p className="text-xs text-muted-foreground">最多 10 張圖片 (每張最大 5MB)</p>
                 <input ref={fileInputRef} type="file" className="sr-only" multiple onChange={handleFileChange} accept="image/*" />
             </div>
         ) : (
@@ -410,25 +415,42 @@ const AIFashionGenerator: React.FC<{ onAddItems: (items: Omit<ClothingItem, 'id'
 
 // Memoized Components for Performance Optimization
 const MemoizedClothingItem: React.FC<MemoizedClothingItemProps> = React.memo(({ item, isSelected, onSelectItem, onEditClick, onDeleteClick }) => {
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleSelect = useCallback(() => {
+        onSelectItem(item);
+    }, [onSelectItem, item]);
+    
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onSelectItem(item);
         }
-    };
+    }, [onSelectItem, item]);
+
+    const handleEdit = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onEditClick(item);
+    }, [onEditClick, item]);
+
+    const handleDelete = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (window.confirm("您確定要刪除此衣物嗎？")) {
+            onDeleteClick(item.id);
+        }
+    }, [onDeleteClick, item.id]);
+
     return (
         <div
             tabIndex={0}
             role="button"
             aria-pressed={isSelected}
-            onClick={() => onSelectItem(item)}
+            onClick={handleSelect}
             onKeyDown={handleKeyDown}
             className={`group relative rounded-lg overflow-hidden border-2 cursor-pointer transition-all duration-200 ${isSelected ? 'border-transparent ring-2 ring-primary ring-offset-2 ring-offset-muted' : 'border-transparent'}`}
         >
             <img src={item.imageUrl} alt={item.description} className="w-full h-full object-cover aspect-square transition-transform group-hover:scale-110" />
             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
-                <button onClick={(e) => onEditClick(e, item)} className="p-1.5 bg-card/80 rounded-full text-foreground hover:bg-card"><PencilIcon className="w-4 h-4" /></button>
-                <button onClick={(e) => onDeleteClick(e, item.id)} className="p-1.5 bg-card/80 rounded-full text-foreground hover:bg-card hover:text-destructive"><TrashIcon className="w-4 h-4" /></button>
+                <button onClick={handleEdit} className="p-1.5 bg-card/80 rounded-full text-foreground hover:bg-card"><PencilIcon className="w-4 h-4" /></button>
+                <button onClick={handleDelete} className="p-1.5 bg-card/80 rounded-full text-foreground hover:bg-card hover:text-destructive"><TrashIcon className="w-4 h-4" /></button>
             </div>
             {isSelected && (
                 <div className="absolute inset-0 bg-primary/60 flex items-center justify-center pointer-events-none">
@@ -441,35 +463,64 @@ const MemoizedClothingItem: React.FC<MemoizedClothingItemProps> = React.memo(({ 
     );
 });
 
-const MemoizedRecommendation: React.FC<MemoizedRecommendationProps> = React.memo(({ rec, feedback, onSelect, onFeedback }) => {
-     const handleKeyDown = (e: React.KeyboardEvent) => {
+const MemoizedRecommendation: React.FC<MemoizedRecommendationProps> = React.memo(({ rec, feedback, onSelect, onFeedback, onPreview }) => {
+    const handleSelect = useCallback(() => {
+        onSelect(rec);
+    }, [onSelect, rec]);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onSelect(rec);
         }
-    };
+    }, [onSelect, rec]);
+
+    const handleLike = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onFeedback(rec.styleName, 'liked');
+    }, [onFeedback, rec.styleName]);
+
+    const handleDislike = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onFeedback(rec.styleName, 'disliked');
+    }, [onFeedback, rec.styleName]);
+
+    const handlePreview = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onPreview(rec);
+    }, [onPreview, rec]);
+    
     return (
-         <div className="p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors animate-fade-in">
-            <div 
-              onClick={() => onSelect(rec)} 
-              onKeyDown={handleKeyDown}
-              tabIndex={0}
-              role="button"
-              className="cursor-pointer"
-            >
+         <div 
+            onClick={handleSelect}
+            onKeyDown={handleKeyDown}
+            tabIndex={0}
+            role="button"
+            className="p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors animate-fade-in cursor-pointer"
+         >
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
                 <p className="font-bold text-sm text-foreground">{rec.styleName}</p>
-                <p className="text-xs text-muted-foreground">{rec.description}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{rec.description}</p>
+              </div>
+               <button
+                  onClick={handlePreview}
+                  aria-label="預覽此穿搭"
+                  className="ml-2 p-1.5 rounded-full text-muted-foreground/60 hover:text-primary hover:bg-primary/10"
+                >
+                    <EyeIcon className="h-4 w-4" />
+                </button>
             </div>
-            <div className="flex items-center justify-end space-x-2 mt-2 -mb-1">
+            <div className="flex items-center justify-end space-x-2 mt-1 -mb-1">
                 <button
-                    onClick={() => onFeedback(rec.styleName, 'liked')}
+                    onClick={handleLike}
                     aria-label="喜歡此推薦"
                     className={`p-1 rounded-full transition-colors ${feedback === 'liked' ? 'text-white bg-green-500' : 'text-muted-foreground/50 hover:text-green-600 hover:bg-green-100'}`}
                 >
                     <ThumbUpIcon className="h-4 w-4" />
                 </button>
                 <button
-                    onClick={() => onFeedback(rec.styleName, 'disliked')}
+                    onClick={handleDislike}
                     aria-label="不喜歡此推薦"
                     className={`p-1 rounded-full transition-colors ${feedback === 'disliked' ? 'text-white bg-red-500' : 'text-muted-foreground/50 hover:text-red-600 hover:bg-red-100'}`}
                 >
@@ -480,31 +531,68 @@ const MemoizedRecommendation: React.FC<MemoizedRecommendationProps> = React.memo
     )
 });
 
-const MemoizedSavedOutfit: React.FC<MemoizedSavedOutfitProps> = React.memo(({ outfit, onDelete }) => (
-    <div key={outfit.id} className="relative group bg-card p-2 rounded-md shadow-sm animate-fade-in">
-        <div className="flex items-start space-x-3">
-            <img src={outfit.imageUrl} alt="Saved outfit" className="w-20 h-20 object-cover rounded" />
-            <div className="flex-1">
-                <p className="text-xs text-muted-foreground">{new Date(outfit.createdAt).toLocaleDateString()}</p>
-                <p className="text-xs text-foreground mt-1 line-clamp-3">{outfit.text}</p>
+const MemoizedSavedOutfit: React.FC<MemoizedSavedOutfitProps> = React.memo(({ outfit, onDelete, onPreview }) => {
+    const handleDelete = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onDelete(outfit.id);
+    }, [onDelete, outfit.id]);
+
+    const handlePreview = useCallback(() => {
+        onPreview(outfit.imageUrl);
+    }, [onPreview, outfit.imageUrl]);
+
+
+    return (
+        <div className="relative group bg-card p-2 rounded-md shadow-sm animate-fade-in">
+            <div className="flex items-start space-x-3">
+                <button onClick={handlePreview} className="flex-shrink-0">
+                  <img src={outfit.imageUrl} alt="Saved outfit" className="w-20 h-20 object-cover rounded" />
+                </button>
+                <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">{new Date(outfit.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-foreground mt-1 line-clamp-3">{outfit.text}</p>
+                </div>
             </div>
+            <button
+                onClick={handleDelete}
+                className="absolute top-1 right-1 p-1 bg-black/30 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                aria-label="刪除此造型"
+            >
+                <TrashIcon className="h-4 w-4" />
+            </button>
         </div>
-        <button
-            onClick={() => onDelete(outfit.id)}
-            className="absolute top-1 right-1 p-1 bg-black/30 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
-            aria-label="刪除此造型"
-        >
-            <TrashIcon className="h-4 w-4" />
-        </button>
-    </div>
-));
+    );
+});
 
 
-export const ClosetManager: React.FC<ClosetManagerProps> = ({ title, closet, savedOutfits, recommendations, onAddItems, onUpdateItem, onDeleteItem, onDeleteSavedOutfit, onGetRecommendations, onSelectRecommendation, onSelectItem, isRecommending, error, selectedTopId, selectedBottomId, recommendationFeedback, onRecommendationFeedback }) => {
+const TabButton: React.FC<{
+    isActive: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+}> = ({ isActive, onClick, children }) => (
+    <button
+        onClick={onClick}
+        className={`w-1/4 flex-1 flex items-center justify-center space-x-2 text-sm font-semibold py-2 px-1 rounded-md transition-colors duration-200 ${isActive ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:bg-background/50'}`}
+    >
+        {children}
+    </button>
+);
+
+
+export const ClosetManager: React.FC<ClosetManagerProps> = ({ 
+    title, closet, savedOutfits, recommendations, 
+    onAddItems, onUpdateItem, onDeleteItem, onDeleteSavedOutfit, 
+    onGetRecommendations, onSelectRecommendation, onSelectItem,
+    onPreviewRecommendation, onPreviewImage,
+    isRecommending, error, 
+    selectedTopId, selectedBottomId, 
+    recommendationFeedback, onRecommendationFeedback 
+}) => {
     const [showAddForm, setShowAddForm] = useState(false);
-    const [showGenerator, setShowGenerator] = useState(false);
     const [editingItem, setEditingItem] = useState<ClothingItem | null>(null);
     const [activeFilters, setActiveFilters] = useState<string[]>([]);
+    const [activeTab, setActiveTab] = useState<ActiveTab>('closet');
+
 
     const allTags = useMemo(() => {
         const tags = new Set<string>();
@@ -521,135 +609,155 @@ export const ClosetManager: React.FC<ClosetManagerProps> = ({ title, closet, sav
         );
     }, [closet, activeFilters]);
 
-    const toggleFilter = (tag: string) => {
+    const toggleFilter = useCallback((tag: string) => {
         setActiveFilters(prev => 
             prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
         );
-    };
-
-    const handleDeleteClick = useCallback((e: React.MouseEvent, itemId: string) => {
-        e.stopPropagation();
-        if (window.confirm("您確定要刪除此衣物嗎？")) {
-            onDeleteItem(itemId);
-        }
-    }, [onDeleteItem]);
-
-    const handleEditClick = useCallback((e: React.MouseEvent, item: ClothingItem) => {
-        e.stopPropagation();
-        setEditingItem(item);
     }, []);
     
     return (
     <div className="bg-card p-6 rounded-2xl shadow-subtle">
         {editingItem && <EditItemModal item={editingItem} onSave={onUpdateItem} onClose={() => setEditingItem(null)} />}
         <h2 className="text-xl font-bold text-foreground mb-1">{title}</h2>
-        <p className="text-sm text-muted-foreground mb-4">新增您的衣物並獲取 AI 風格建議。</p>
+        <p className="text-sm text-muted-foreground mb-4">透過管理您的衣櫥與 AI 互動，打造完美造型。</p>
         
-        <div className="space-y-6">
-            <div>
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">我的衣櫥 ({closet.length})</h3>
-                    <button onClick={() => {setShowAddForm(!showAddForm); setShowGenerator(false);}} className="text-sm font-medium text-primary hover:text-primary/80 flex items-center space-x-1">
-                        <PlusIcon className="h-4 w-4" />
-                        <span>{showAddForm ? '關閉' : '新增衣物'}</span>
-                    </button>
-                </div>
-                {showAddForm && <div className="p-4 bg-muted/50 rounded-lg mb-2 animate-fade-in"><ItemUploaderForm onAddItems={onAddItems} close={() => setShowAddForm(false)} /></div>}
-                
-                {allTags.length > 0 && (
-                    <div className="mb-2 p-2 bg-muted/50 rounded-lg">
-                        <div className="flex items-center justify-between mb-1">
-                           <h4 className="text-xs font-semibold text-muted-foreground">智慧篩選器</h4>
-                           {activeFilters.length > 0 && (
-                             <button onClick={() => setActiveFilters([])} className="text-xs text-primary hover:underline">清除</button>
-                           )}
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                            {allTags.map(tag => (
-                                <button
-                                    key={tag}
-                                    onClick={() => toggleFilter(tag)}
-                                    className={`px-2 py-0.5 text-xs font-medium rounded-full border transition-colors ${activeFilters.includes(tag) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-border hover:bg-accent'}`}
-                                >
-                                    {tag}
-                                </button>
-                            ))}
-                        </div>
+        <div className="flex space-x-1 bg-muted p-1 rounded-lg mb-4">
+            <TabButton isActive={activeTab === 'closet'} onClick={() => setActiveTab('closet')}>
+                <WardrobeIcon className="w-4 h-4" />
+                <span>我的衣櫥</span>
+            </TabButton>
+             <TabButton isActive={activeTab === 'advisor'} onClick={() => setActiveTab('advisor')}>
+                <SparklesIcon className="w-4 h-4" />
+                <span>AI 顧問</span>
+            </TabButton>
+             <TabButton isActive={activeTab === 'generator'} onClick={() => setActiveTab('generator')}>
+                <MagicWandIcon className="w-4 h-4" />
+                <span>AI 生成器</span>
+            </TabButton>
+             <TabButton isActive={activeTab === 'lookbook'} onClick={() => setActiveTab('lookbook')}>
+                <BookmarkIcon className="w-4 h-4" />
+                <span>造型手冊</span>
+            </TabButton>
+        </div>
+
+        <div className="animate-fade-in">
+            {activeTab === 'closet' && (
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-semibold text-muted-foreground">我的衣櫥 ({closet.length})</h3>
+                        <button onClick={() => setShowAddForm(!showAddForm)} className="text-sm font-medium text-primary hover:text-primary/80 flex items-center space-x-1">
+                            <PlusIcon className="h-4 w-4" />
+                            <span>{showAddForm ? '關閉' : '新增衣物'}</span>
+                        </button>
                     </div>
-                )}
-                
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 bg-muted p-2 rounded-lg min-h-[80px]">
-                    {filteredCloset.map(item => (
-                       <MemoizedClothingItem
-                            key={item.id}
-                            item={item}
-                            isSelected={item.id === selectedTopId || item.id === selectedBottomId}
-                            onSelectItem={onSelectItem}
-                            onEditClick={handleEditClick}
-                            onDeleteClick={handleDeleteClick}
-                       />
-                    ))}
-                    {closet.length > 0 && filteredCloset.length === 0 && <p className="col-span-full text-center text-xs text-muted-foreground py-4">找不到符合篩選條件的衣物。</p>}
-                    {closet.length === 0 && !showAddForm && (
-                        <div className="col-span-full text-center py-4 px-2">
-                            <p className="text-xs text-muted-foreground mb-2">您的衣櫥是空的！</p>
-                            <button onClick={() => setShowAddForm(true)} className="text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 py-1.5 px-3 rounded-lg">
-                                新增您的第一件衣物
-                            </button>
+                    {showAddForm && <div className="p-4 bg-muted/50 rounded-lg mb-2 animate-fade-in"><ItemUploaderForm onAddItems={onAddItems} close={() => setShowAddForm(false)} /></div>}
+                    
+                    {allTags.length > 0 && (
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                            <div className="flex items-center justify-between mb-1">
+                               <h4 className="text-xs font-semibold text-muted-foreground">智慧篩選器</h4>
+                               {activeFilters.length > 0 && (
+                                 <button onClick={() => setActiveFilters([])} className="text-xs text-primary hover:underline">清除</button>
+                               )}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                                {allTags.map(tag => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => toggleFilter(tag)}
+                                        className={`px-2 py-0.5 text-xs font-medium rounded-full border transition-colors ${activeFilters.includes(tag) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-border hover:bg-accent'}`}
+                                    >
+                                        {tag}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
+                    
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 bg-muted p-2 rounded-lg min-h-[80px]">
+                        {filteredCloset.map(item => (
+                           <MemoizedClothingItem
+                                key={item.id}
+                                item={item}
+                                isSelected={item.id === selectedTopId || item.id === selectedBottomId}
+                                onSelectItem={onSelectItem}
+                                onEditClick={setEditingItem}
+                                onDeleteClick={onDeleteItem}
+                           />
+                        ))}
+                        {closet.length > 0 && filteredCloset.length === 0 && <p className="col-span-full text-center text-xs text-muted-foreground py-4">找不到符合篩選條件的衣物。</p>}
+                        {closet.length === 0 && !showAddForm && (
+                            <div className="col-span-full text-center py-4 px-2">
+                                <p className="text-xs text-muted-foreground mb-2">您的衣櫥是空的！</p>
+                                <button onClick={() => setShowAddForm(true)} className="text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 py-1.5 px-3 rounded-lg">
+                                    新增您的第一件衣物
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
-            
-            <div>
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">AI 時尚生成器</h3>
-                     <button onClick={() => {setShowGenerator(!showGenerator); setShowAddForm(false);}} className="text-sm font-medium text-primary hover:text-primary/80 flex items-center space-x-1">
-                        <MagicWandIcon className="h-4 w-4" />
-                        <span>{showGenerator ? '關閉' : '生成衣物'}</span>
+            )}
+
+            {activeTab === 'advisor' && (
+                <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">AI 風格顧問</h3>
+                    <button onClick={onGetRecommendations} disabled={isRecommending || closet.length < 2} className="w-full flex items-center justify-center space-x-2 text-sm font-bold py-2 px-4 rounded-lg transition-colors duration-300 bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed">
+                        {isRecommending ? <LoadingSpinner /> : <SparklesIcon className="h-5 w-5" />}
+                        <span>{isRecommending ? '思考中...' : '獲取風格推薦'}</span>
                     </button>
+                    {error && <div className="mt-2 text-sm text-destructive flex items-start space-x-1"><ExclamationIcon className="h-4 w-4 mt-0.5" /><p>{error}</p></div>}
+                    
+                    <div className="mt-3 space-y-2">
+                        {recommendations.map((rec) => (
+                            <MemoizedRecommendation
+                                key={rec.styleName}
+                                rec={rec}
+                                feedback={recommendationFeedback[rec.styleName]}
+                                onSelect={onSelectRecommendation}
+                                onFeedback={onRecommendationFeedback}
+                                onPreview={onPreviewRecommendation}
+                            />
+                        ))}
+                        {closet.length > 0 && recommendations.length === 0 && !isRecommending && !error && (
+                             <div className="text-center py-4 px-2 bg-muted/50 rounded-lg mt-3">
+                                <p className="text-xs text-muted-foreground">點擊上方按鈕，讓 AI 為您的衣櫥提供靈感！</p>
+                            </div>
+                        )}
+                         {closet.length < 2 && (
+                             <div className="text-center py-4 px-2 bg-muted/50 rounded-lg mt-3">
+                                <p className="text-xs text-muted-foreground">請先在您的衣櫥中加入至少兩件衣物。</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
-                {showGenerator && <div className="animate-fade-in"><AIFashionGenerator onAddItems={onAddItems} /></div>}
-            </div>
-
-            <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-2">AI 風格顧問</h3>
-                <button onClick={onGetRecommendations} disabled={isRecommending || closet.length < 2} className="w-full flex items-center justify-center space-x-2 text-sm font-bold py-2 px-4 rounded-lg transition-colors duration-300 bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed">
-                    {isRecommending ? <LoadingSpinner /> : <SparklesIcon className="h-5 w-5" />}
-                    <span>{isRecommending ? '思考中...' : '獲取風格推薦'}</span>
-                </button>
-                {error && <div className="mt-2 text-sm text-destructive flex items-start space-x-1"><ExclamationIcon className="h-4 w-4 mt-0.5" /><p>{error}</p></div>}
-                
-                <div className="mt-3 space-y-2">
-                    {recommendations.map((rec) => (
-                        <MemoizedRecommendation
-                            key={rec.styleName}
-                            rec={rec}
-                            feedback={recommendationFeedback[rec.styleName]}
-                            onSelect={onSelectRecommendation}
-                            onFeedback={onRecommendationFeedback}
-                        />
-                    ))}
+            )}
+            
+            {activeTab === 'generator' && (
+                <div>
+                     <h3 className="text-sm font-semibold text-muted-foreground mb-2">AI 時尚生成器</h3>
+                     <AIFashionGenerator onAddItems={onAddItems} />
                 </div>
-            </div>
+            )}
 
-            <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-2">我的造型手冊 ({savedOutfits.length})</h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto bg-muted p-2 rounded-lg">
-                    {savedOutfits.length > 0 ? savedOutfits.map(outfit => (
-                       <MemoizedSavedOutfit
-                           key={outfit.id}
-                           outfit={outfit}
-                           onDelete={onDeleteSavedOutfit}
-                       />
-                    )) : (
-                         <div className="text-center py-4 px-2">
-                            <p className="text-xs text-muted-foreground">將您喜歡的 AI 穿搭儲存於此！</p>
-                        </div>
-                    )}
+            {activeTab === 'lookbook' && (
+                <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">我的造型手冊 ({savedOutfits.length})</h3>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto bg-muted p-2 rounded-lg">
+                        {savedOutfits.length > 0 ? savedOutfits.map(outfit => (
+                           <MemoizedSavedOutfit
+                               key={outfit.id}
+                               outfit={outfit}
+                               onDelete={onDeleteSavedOutfit}
+                               onPreview={onPreviewImage}
+                           />
+                        )) : (
+                             <div className="text-center py-8 px-2">
+                                <p className="text-xs text-muted-foreground">將您喜歡的 AI 穿搭儲存於此！</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
-
+            )}
         </div>
     </div>
   );

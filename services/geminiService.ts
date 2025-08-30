@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { ClothingItem, StyleRecommendation, ClothingType, ShoppingAssistantResult } from "../types";
+import { ClothingItem, StyleRecommendation, ClothingType, ShoppingAssistantResult, OotdAnalysisResult, UpgradeSuggestion } from "../types";
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable not set");
@@ -62,7 +62,11 @@ async function callImageEditAPI(base64ImageData: string, mimeType: string, promp
         }
 
         if (!imageBase64 && !text) {
-            throw new Error("Gemini API 回應無效。找不到圖片或文字。");
+            // It's possible for the model to just return an image if it deems no text necessary.
+            // Only throw error if BOTH are null.
+            if (!imageBase64) {
+               throw new Error("Gemini API 回應無效。找不到圖片。");
+            }
         }
 
         return { imageBase64, text };
@@ -82,11 +86,25 @@ export async function generateVirtualTryOn(
     bottom: ClothingItem | null
 ): Promise<{ imageBase64: string | null; text: string | null }> {
     
-    const promptParts = [
-        "你是一位執行虛擬試穿的 AI 造型師。",
-        "第一張圖是模特兒，後續的圖片是要穿上的衣物單品。",
-        "你的任務是真實地編輯模特兒的圖片，讓他們穿上新衣服。"
-    ];
+    let instruction = "";
+    if (top && bottom) {
+        instruction = `將主圖中模特兒的衣物，替換為參考圖中的上半身 ('${top.description}') 和下半身 ('${bottom.description}')。`;
+    } else if (top) {
+        instruction = `僅將主圖中模特兒的上半身衣物，替換為參考圖中的單品 ('${top.description}')。保持下半身不變。`;
+    } else if (bottom) {
+        instruction = `僅將主圖中模特兒的下半身衣物，替換為參考圖中的單品 ('${bottom.description}')。保持上半身不變。`;
+    }
+
+    const prompt = `**任務：虛擬試穿**
+**輸入：**
+- **主圖：** 第一張圖片，是模特兒的原始照片。
+- **參考圖：** 後續的圖片，是要穿上的衣物單品。
+
+**指令：**
+1. **替換衣物：** ${instruction}
+2. **嚴格限制：** 絕對不要更改模特兒的姿勢、臉部表情、髮型或背景。背景必須與原始照片完全一致。
+3. **文字輸出：** 提供一段簡短友善的「AI 造型師筆記」，描述這套新穿搭。
+`;
     
     const referenceImages: ImagePart[] = [];
 
@@ -99,61 +117,73 @@ export async function generateVirtualTryOn(
         if (parsed) referenceImages.push(parsed);
     }
 
-    if (top && bottom) {
-        promptParts.push(`請將模特兒目前的衣物替換為提供的上半身 ('${top.description}') 和下半身 ('${bottom.description}')。`);
-    } else if (top) {
-        promptParts.push(`請僅將模特兒的上半身替換為提供的單品 ('${top.description}')。不要改變他們的下半身。`);
-    } else if (bottom) {
-        promptParts.push(`請僅將模特兒的下半身替換為提供的單品 ('${bottom.description}')。不要改變他們的上半身。`);
-    }
-
-    promptParts.push("關鍵要點：你必須保持人物原始的姿勢、臉部和背景完全相同。只有衣物應該被修改以自然地貼合模特兒。");
-    promptParts.push("最後，用簡短友善的「AI 助理筆記」來描述這套新穿搭。");
-
-    const prompt = promptParts.join(' ');
-
     return callImageEditAPI(userModel.base64, userModel.mimeType, prompt, referenceImages);
 }
 
 
 export async function generateAndRecommendOutfit(base64ImageData: string, mimeType: string): Promise<{ imageBase64: string | null; text: string | null }> {
-  const styles = [
-    '休閒時尚', '街頭風', '商務休閒', '極簡主義', '波希米亞風',
-    '學院風', '運動休閒', '復古風格', '智慧休閒', '搖滾風',
-    '經典風', '前衛風', '混搭風', '都會精緻風'
-  ];
-  const randomStyle = styles[Math.floor(Math.random() * styles.length)];
-  const currentSeason = getCurrentSeason();
+    // Step 1: Use a text model to generate a detailed outfit description.
+    const styles = [
+        '休閒時尚', '街頭風', '商務休閒', '極簡主義', '波希米亞風',
+        '學院風', '運動休閒', '復古風格', '智慧休閒', '搖滾風',
+        '經典風', '前衛風', '混搭風', '都會精緻風'
+    ];
+    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+    const currentSeason = getCurrentSeason();
 
-  const prompt = `**主要任務：虛擬試穿圖片生成**
+    const designPrompt = `你是一位 AI 時尚設計師。根據這張模特兒的照片，為他們設計一套適合「${currentSeason}」的「${randomStyle}」風格穿搭。
+    
+你的任務是只回傳一個清晰、具體的穿搭文字描述，供另一位 AI 造型師進行圖片編輯。
 
-你是一位專業的 AI 造型師。你的主要目標是編輯提供的圖片，讓圖中人物穿上一套全新的服裝。
+描述中必須包含：
+1.  **上半身**：詳細描述衣物的款式、顏色、材質。
+2.  **下半身**：詳細描述衣物的款式、顏色、材質。
+3.  **鞋款**：建議搭配的鞋款。
 
-**穿搭需求：**
-- **主題：** ${randomStyle}
-- **季節：** ${currentSeason}
-- **構成：** 這套穿搭必須是完整的造型，包含上半身和下半身。
+請直接輸出穿搭描述，不要包含任何額外的問候語或標題。例如：「一件米白色的寬鬆亞麻襯衫，搭配一條深藍色的九分斜紋褲，腳上穿著一雙白色的帆布鞋。」`;
 
-**關鍵圖片編輯規則：**
-- 你 **必須** 將人物原本的衣物替換為你設計的新穿搭。
-- 你 **必須** 保留人物原始的姿勢、臉部、表情以及完整的背景。唯一要改變的只有衣物。
+    const designResponse = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: {
+            parts: [
+                { inlineData: { data: base64ImageData, mimeType: mimeType } },
+                { text: designPrompt },
+            ],
+        },
+    });
+    
+    const outfitDescription = designResponse.text.trim();
+    if (!outfitDescription) {
+        throw new Error("AI 設計師未能產生穿搭描述。");
+    }
 
-**次要任務：造型師報告**
+    // Step 2: Try to use the generated description to edit the image.
+    try {
+        const editPrompt = `**任務：虛擬試穿**
+**輸入：**
+- **主圖：** 模特兒的原始照片。
 
-成功生成圖片後，請提供一段文字描述。文字 **必須** 遵循以下確切格式：
+**指令：**
+1. **替換衣物：** 根據以下描述，將模特兒身上的衣物替換掉：
+   **穿搭描述：** "${outfitDescription}"
+2. **嚴格限制：** 絕對不要更改模特兒的姿勢、臉部表情、髮型或背景。背景必須與原始照片完全一致。
+3. **文字輸出：** 將原始的穿搭描述 "${outfitDescription}" 作為「AI 造型師筆記」回傳，並在前面加上一句友善的引言。`;
+      
+        const editResult = await callImageEditAPI(base64ImageData, mimeType, editPrompt);
+        
+        if (editResult.imageBase64) {
+            return editResult;
+        } else {
+            // If the AI call succeeded but failed to produce an image, throw a specific user-friendly error.
+            console.warn("虛擬試穿 API 未能生成圖片。原因:", editResult.text || "未知");
+            throw new Error("AI did not return an image.");
+        }
 
-**核心造型概念：**
-[簡要說明此造型的靈感來源。]
-
-**穿搭細節：**
-- **上半身：** [描述新的上半身衣物。]
-- **下半身：** [描述新的下半身衣物。]
-- **鞋款：** [建議合適的鞋款。]
-
-**造型師筆記：**
-[提供專業分析，說明為何這套穿搭很成功，著重於風格、色彩和版型。]`;
-  
-  return callImageEditAPI(base64ImageData, mimeType, prompt);
+    } catch (error) {
+        console.error("生成虛擬試穿圖片時發生錯誤:", error);
+        // As requested by the user, provide a simple message to try again later, instead of a fallback.
+        throw new Error("抱歉，AI 暫時無法完成這次的虛擬試穿。請稍後再試一次。");
+    }
 }
 
 
@@ -353,4 +383,161 @@ ${outfitDescription}
         }
         throw new Error("尋找相似單品時發生未知錯誤。");
     }
+}
+
+export async function validateUserModelImage(base64ImageData: string, mimeType: string): Promise<{ isValid: boolean; reason: string | null }> {
+  const prompt = `你是一個嚴格的圖片品質檢驗員。你的任務是判斷這張圖片是否符合虛擬試穿模型的所有要求。要求如下：
+1.  **單人全身照：** 圖片中必須且只能有一位人物，且必須包含從頭到腳的完整身體。
+2.  **清晰度：** 圖片必須清晰，不能模糊或過度曝光/曝光不足。
+
+請根據以上標準，回傳一個 JSON 物件。`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: {
+        parts: [
+          { inlineData: { data: base64ImageData, mimeType: mimeType } },
+          { text: prompt },
+        ],
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isValid: {
+              type: Type.BOOLEAN,
+              description: "圖片是否符合所有要求。",
+            },
+            reason: {
+              type: Type.STRING,
+              description: "如果圖片無效 (isValid 為 false)，提供一個簡短、友善且具指導性的原因。例如：'這似乎不是一張全身照，請確保照片包含您的頭部和雙腳。' 或 '照片有些模糊，請嘗試使用更清晰的圖片。'",
+            },
+          },
+          required: ["isValid"],
+        },
+      },
+    });
+
+    const jsonText = response.text.trim();
+    const result = JSON.parse(jsonText);
+
+    if (typeof result.isValid === 'boolean') {
+      return {
+        isValid: result.isValid,
+        reason: result.reason || null,
+      };
+    } else {
+      throw new Error("AI 回應的 schema 無效。");
+    }
+  } catch (error) {
+    console.error("Error calling Gemini API for image validation:", error);
+    if (error instanceof Error) {
+      throw new Error(`Gemini API 錯誤: ${error.message}`);
+    }
+    throw new Error("驗證圖片時發生未知錯誤。");
+  }
+}
+
+export async function analyzeOotd(base64ImageData: string, mimeType: string): Promise<OotdAnalysisResult> {
+  // --- Call 1: Get Text Analysis & Suggestions ---
+  const analysisPrompt = `你是一位頂尖的時尚評論家和造型師。你的任務是分析使用者上傳的當日穿搭 (OOTD) 照片，並提供專業、有建設性的回饋。
+
+**任務清單：**
+1.  **專業點評 (critique):** 提供一段專業的造型分析。從色彩、版型、層次、比例等多個維度進行點評。語氣要客觀、鼓勵，同時點出可以更好的地方。
+2.  **升級建議 (upgradeSuggestions):** 提出 1 到 2 個具體、可執行的「錦上添花」建議。例如：「嘗試將運動鞋換成樂福鞋以增加都會感。」或「加上一條簡潔的項鍊來點亮視覺焦點。」
+3.  **單品識別 (identifiedItems):** 識別出照片中 2 到 4 件最主要的衣物單品，並提供它們的描述和類型 ('TOP' 或 'BOTTOM')。
+
+你的回覆必須是符合提供之 schema 的 JSON 物件。
+
+**範例 identifiedItems:**
+- {"description": "藍色牛津襯衫", "type": "TOP"}
+- {"description": "卡其色斜紋褲", "type": "BOTTOM"}
+`;
+
+  const textAnalysisResponse = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [
+        { inlineData: { data: base64ImageData, mimeType: mimeType } },
+        { text: analysisPrompt },
+      ],
+    },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          critique: { type: Type.STRING, description: "對 OOTD 的專業點評。" },
+          upgradeSuggestions: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: { suggestion: { type: Type.STRING, description: "一個具體的升級建議文字。" } },
+              required: ["suggestion"],
+            },
+            description: "包含 1-2 個升級建議的陣列。",
+          },
+          identifiedItems: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                description: { type: Type.STRING, description: "識別出的單品描述。" },
+                type: { type: Type.STRING, enum: ["TOP", "BOTTOM"], description: "單品類型。" },
+              },
+              required: ["description", "type"],
+            },
+            description: "包含 2-4 個已識別單品的陣列。",
+          },
+        },
+        required: ["critique", "upgradeSuggestions", "identifiedItems"],
+      },
+    },
+  });
+
+  const analysisResult = JSON.parse(textAnalysisResponse.text.trim());
+  
+  if (!analysisResult.upgradeSuggestions || analysisResult.upgradeSuggestions.length === 0) {
+    return { ...analysisResult, upgradeSuggestions: [] };
+  }
+  
+  // --- Call 2: Generate Upgraded Image ---
+  const suggestionToVisualize = analysisResult.upgradeSuggestions[0].suggestion;
+  const imageEditPrompt = `**任務：視覺化造型升級**
+**指令：**
+1.  **應用變更：** 根據以下建議，對主圖中的穿搭進行細微、精緻的修改：
+    **建議：** "${suggestionToVisualize}"
+2.  **嚴格限制：** 這是「升級」而不是「替換」。盡最大可能保持原始衣物，只修改建議中提到的部分。絕對不要更改人物的姿勢、臉部、髮型或背景。`;
+
+  const { imageBase64 } = await callImageEditAPI(base64ImageData, mimeType, imageEditPrompt);
+
+  if (!imageBase64) {
+      // Don't throw an error, just return the text part
+      console.warn("AI 成功分析了穿搭，但無法生成升級後的預覽圖。");
+      return {
+          ...analysisResult,
+          upgradeSuggestions: analysisResult.upgradeSuggestions.map((s: {suggestion: string}) => ({ ...s, upgradedImageBase64: '' })),
+      };
+  }
+
+  // --- Combine Results ---
+  const finalSuggestions: UpgradeSuggestion[] = [{
+      suggestion: suggestionToVisualize,
+      upgradedImageBase64: imageBase64,
+  }];
+
+  if (analysisResult.upgradeSuggestions[1]) {
+      finalSuggestions.push({
+          suggestion: analysisResult.upgradeSuggestions[1].suggestion,
+          upgradedImageBase64: '', // No image for the second one
+      });
+  }
+
+  return {
+    critique: analysisResult.critique,
+    identifiedItems: analysisResult.identifiedItems,
+    upgradeSuggestions: finalSuggestions,
+  };
 }
