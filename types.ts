@@ -42,3 +42,9 @@ export interface OotdAnalysisResult {
   upgradeSuggestions: UpgradeSuggestion[];
   identifiedItems: IdentifiedItem[];
 }
+
+export interface StyleProfile {
+  keywords: string[];
+  occasion: string;
+  notes: string;
+}

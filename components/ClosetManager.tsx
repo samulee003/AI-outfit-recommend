@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { ClothingItem, ClothingType, StyleRecommendation, SavedOutfit } from '../types';
-import { PlusIcon, SparklesIcon, ExclamationIcon, UploadIcon, TrashIcon, MagicWandIcon, PencilIcon, ThumbUpIcon, ThumbDownIcon, EyeIcon, WardrobeIcon, BookmarkIcon } from './icons';
+import { ClothingItem, ClothingType, StyleRecommendation, SavedOutfit, StyleProfile } from '../types';
+// FIX: Replaced missing WardrobeIcon with CubeIcon for UI consistency.
+import { PlusIcon, SparklesIcon, ExclamationIcon, UploadIcon, TrashIcon, MagicWandIcon, PencilIcon, ThumbUpIcon, ThumbDownIcon, EyeIcon, CubeIcon, BookmarkIcon, CogIcon } from './icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { generateClothingItem, describeClothingItem } from '../services/geminiService';
 
@@ -33,6 +34,8 @@ interface ClosetManagerProps {
     closet: ClothingItem[];
     savedOutfits: SavedOutfit[];
     recommendations: StyleRecommendation[];
+    styleProfile: StyleProfile;
+    onSaveStyleProfile: (profile: StyleProfile) => void;
     onAddItems: (items: Omit<ClothingItem, 'id'>[]) => void;
     onUpdateItem: (item: ClothingItem) => void;
     onDeleteItem: (itemId: string) => void;
@@ -61,7 +64,7 @@ interface StagedItem {
     analysisError: string | null;
 }
 
-type ActiveTab = 'closet' | 'advisor' | 'generator' | 'lookbook';
+type ActiveTab = 'closet' | 'advisor' | 'generator' | 'lookbook' | 'style';
 
 
 const parseDataUrl = (dataUrl: string): { base64: string; mimeType: string } | null => {
@@ -572,16 +575,74 @@ const TabButton: React.FC<{
 }> = ({ isActive, onClick, children }) => (
     <button
         onClick={onClick}
-        className={`w-1/4 flex-1 flex items-center justify-center space-x-2 text-sm font-semibold py-2 px-1 rounded-md transition-colors duration-200 ${isActive ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:bg-background/50'}`}
+        className={`flex-1 flex flex-col items-center justify-center space-y-1 text-xs font-semibold py-2 px-1 rounded-md transition-colors duration-200 ${isActive ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:bg-background/50'}`}
     >
         {children}
     </button>
 );
 
+const StyleProfileManager: React.FC<{
+    initialProfile: StyleProfile;
+    onSave: (profile: StyleProfile) => void;
+}> = ({ initialProfile, onSave }) => {
+    const [profile, setProfile] = useState(initialProfile);
+    const [isSaved, setIsSaved] = useState(false);
+
+    const styleKeywords = ['極簡', '街頭', '復古', '商務休閒', '運動', '正裝', '波希米亞', '學院風'];
+
+    const handleKeywordToggle = (keyword: string) => {
+        setProfile(prev => {
+            const newKeywords = prev.keywords.includes(keyword)
+                ? prev.keywords.filter(k => k !== keyword)
+                : [...prev.keywords, keyword];
+            return { ...prev, keywords: newKeywords };
+        });
+    };
+
+    const handleSave = () => {
+        onSave(profile);
+        setIsSaved(true);
+        setTimeout(() => setIsSaved(false), 2000);
+    };
+
+    return (
+        <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+            <div>
+                <label className="text-sm font-semibold text-muted-foreground mb-2 block">風格關鍵字</label>
+                <div className="flex flex-wrap gap-2">
+                    {styleKeywords.map(kw => (
+                        <button key={kw} onClick={() => handleKeywordToggle(kw)}
+                            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${profile.keywords.includes(kw) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-border hover:bg-accent'}`}
+                        >
+                            {kw}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div>
+                <label htmlFor="occasion" className="text-sm font-semibold text-muted-foreground mb-1 block">穿搭場合</label>
+                <input id="occasion" type="text" value={profile.occasion} onChange={e => setProfile({...profile, occasion: e.target.value})}
+                    placeholder="例如：日常通勤、週末出遊"
+                    className="block w-full border border-border rounded-md shadow-sm py-1.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+             <div>
+                <label htmlFor="notes" className="text-sm font-semibold text-muted-foreground mb-1 block">個人筆記 (Do's & Don'ts)</label>
+                <textarea id="notes" value={profile.notes} onChange={e => setProfile({...profile, notes: e.target.value})}
+                    placeholder="例如：不喜歡亮色系、偏好寬鬆版型"
+                    rows={3}
+                    className="block w-full border border-border rounded-md shadow-sm py-1.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <button onClick={handleSave} className="w-full flex items-center justify-center text-sm font-bold py-2 px-4 rounded-lg transition-colors duration-300 bg-primary text-primary-foreground hover:bg-primary/90">
+                {isSaved ? '已儲存！' : '儲存風格設定'}
+            </button>
+        </div>
+    );
+};
+
 
 export const ClosetManager: React.FC<ClosetManagerProps> = ({ 
-    title, closet, savedOutfits, recommendations, 
-    onAddItems, onUpdateItem, onDeleteItem, onDeleteSavedOutfit, 
+    title, closet, savedOutfits, recommendations, styleProfile,
+    onSaveStyleProfile, onAddItems, onUpdateItem, onDeleteItem, onDeleteSavedOutfit, 
     onGetRecommendations, onSelectRecommendation, onSelectItem,
     onPreviewRecommendation, onPreviewImage,
     isRecommending, error, 
@@ -623,7 +684,7 @@ export const ClosetManager: React.FC<ClosetManagerProps> = ({
         
         <div className="flex space-x-1 bg-muted p-1 rounded-lg mb-4">
             <TabButton isActive={activeTab === 'closet'} onClick={() => setActiveTab('closet')}>
-                <WardrobeIcon className="w-4 h-4" />
+                <CubeIcon className="w-4 h-4" />
                 <span>我的衣櫥</span>
             </TabButton>
              <TabButton isActive={activeTab === 'advisor'} onClick={() => setActiveTab('advisor')}>
@@ -637,6 +698,10 @@ export const ClosetManager: React.FC<ClosetManagerProps> = ({
              <TabButton isActive={activeTab === 'lookbook'} onClick={() => setActiveTab('lookbook')}>
                 <BookmarkIcon className="w-4 h-4" />
                 <span>造型手冊</span>
+            </TabButton>
+            <TabButton isActive={activeTab === 'style'} onClick={() => setActiveTab('style')}>
+                <CogIcon className="w-4 h-4" />
+                <span>我的風格</span>
             </TabButton>
         </div>
 
@@ -756,6 +821,13 @@ export const ClosetManager: React.FC<ClosetManagerProps> = ({
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {activeTab === 'style' && (
+                 <div>
+                     <h3 className="text-sm font-semibold text-muted-foreground mb-2">我的風格設定</h3>
+                     <StyleProfileManager initialProfile={styleProfile} onSave={onSaveStyleProfile} />
                 </div>
             )}
         </div>

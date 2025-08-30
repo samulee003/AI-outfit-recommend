@@ -17,12 +17,12 @@ const ModeOption: React.FC<{
 }> = ({ label, description, icon, isActive, onClick }) => (
   <button
     onClick={onClick}
-    className="relative z-10 w-full text-left p-2 rounded-lg transition-colors duration-300"
+    className="relative z-10 w-full text-left p-2 rounded-xl transition-colors duration-300"
     role="tab"
     aria-selected={isActive}
   >
     <div className="flex items-center space-x-3 xl:space-x-4 p-1 xl:p-2">
-      <div className={`p-2 rounded-full transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
+      <div className={`p-2 rounded-full transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'}`}>
         {icon}
       </div>
       <div>
@@ -37,10 +37,10 @@ const ModeOption: React.FC<{
 export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ currentMode, onModeChange }) => {
   const modeIndex = { basic: 0, advanced: 1, ootd: 2 }[currentMode];
   return (
-    <div className="relative bg-muted p-1 rounded-xl flex items-center" role="tablist">
+    <div className="relative bg-muted p-1 rounded-2xl flex items-center" role="tablist">
       <span
-        className={`absolute top-1 bottom-1 w-[calc(33.3333%-2px)] bg-card rounded-lg shadow-sm transition-transform duration-300 ease-in-out transform`}
-        style={{ transform: `translateX(${modeIndex * 100}%)` }}
+        className={`absolute top-1 bottom-1 w-[calc(33.3333%-4px)] bg-card rounded-xl shadow-md transition-transform duration-300 ease-in-out transform`}
+        style={{ transform: `translateX(calc(${modeIndex * 100}% + ${modeIndex * 2}px))` }}
         aria-hidden="true"
       />
       <div className="w-1/3">

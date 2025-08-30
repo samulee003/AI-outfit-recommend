@@ -9,7 +9,7 @@ import { OnboardingGuide } from './components/OnboardingGuide';
 import { ImagePreviewModal } from './components/ImagePreviewModal';
 import { OotdAnalyzer } from './components/OotdAnalyzer';
 import { generateVirtualTryOn, getStyleRecommendations, generateAndRecommendOutfit, findSimilarItems, analyzeOotd } from './services/geminiService';
-import { ClothingItem, StyleRecommendation, SavedOutfit, ShoppingAssistantResult, OotdAnalysisResult } from './types';
+import { ClothingItem, StyleRecommendation, SavedOutfit, ShoppingAssistantResult, OotdAnalysisResult, StyleProfile } from './types';
 import { PreviewModal } from './components/PreviewModal';
 import { ChatBubbleIcon } from './components/icons';
 
@@ -22,7 +22,7 @@ interface FeedbackModalProps {
 const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
-    const feedbackEmail = "feedback.style.magician@example.com";
+    const feedbackEmail = "samu003@gmail.com";
     const emailSubject = encodeURIComponent("穿搭魔法師 App 回饋與建議");
     const emailBody = encodeURIComponent(`嗨，穿搭魔法師團隊：\n\n我想分享一些關於 App 的想法...\n\n`);
     const mailtoLink = `mailto:${feedbackEmail}?subject=${emailSubject}&body=${emailBody}`;
@@ -83,6 +83,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
 
+  // Style Profile State
+  const [styleProfile, setStyleProfile] = useState<StyleProfile>({ keywords: [], occasion: '', notes: '' });
+
   // Shopping Assistant State
   const [isFindingSimilarItems, setIsFindingSimilarItems] = useState<boolean>(false);
   const [shoppingAssistantResults, setShoppingAssistantResults] = useState<ShoppingAssistantResult[] | null>(null);
@@ -122,6 +125,10 @@ const App: React.FC = () => {
       const savedFeedback = localStorage.getItem('virtualFeedback');
       if (savedFeedback) {
         setRecommendationFeedback(JSON.parse(savedFeedback));
+      }
+      const savedProfile = localStorage.getItem('styleProfile');
+      if (savedProfile) {
+        setStyleProfile(JSON.parse(savedProfile));
       }
 
       // Check for onboarding
@@ -170,6 +177,15 @@ const App: React.FC = () => {
         localStorage.setItem('virtualLookbook', JSON.stringify(updatedLookbook));
     } catch (e) {
         console.error("Failed to save lookbook to localStorage", e);
+    }
+  }, []);
+  
+  const handleSaveStyleProfile = useCallback((profile: StyleProfile) => {
+    setStyleProfile(profile);
+    try {
+        localStorage.setItem('styleProfile', JSON.stringify(profile));
+    } catch (e) {
+        console.error("Failed to save style profile to localStorage", e);
     }
   }, []);
 
@@ -246,7 +262,7 @@ const App: React.FC = () => {
       setRecommendationError(null);
       setRecommendations([]);
       try {
-          const result = await getStyleRecommendations(closet, recommendationFeedback);
+          const result = await getStyleRecommendations(closet, recommendationFeedback, styleProfile);
           setRecommendations(result);
       } catch (err) {
           console.error(err);
@@ -254,7 +270,7 @@ const App: React.FC = () => {
       } finally {
           setIsRecommending(false);
       }
-  }, [closet, recommendationFeedback]);
+  }, [closet, recommendationFeedback, styleProfile]);
 
   const handleRecommendationSelect = useCallback((recommendation: StyleRecommendation) => {
       const foundTop = closet.find(item => item.id === recommendation.topId) || null;
@@ -295,7 +311,7 @@ const App: React.FC = () => {
       let result: { imageBase64: string | null; text: string | null; };
       
       if (appMode === 'basic') {
-        result = await generateAndRecommendOutfit(userModel.base64, userModel.mimeType);
+        result = await generateAndRecommendOutfit(userModel.base64, userModel.mimeType, styleProfile);
       } else {
         if (!selectedTop && !selectedBottom) {
           setError("請選擇一套推薦穿搭，或手動選擇衣物進行試穿。");
@@ -326,7 +342,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [appMode, userModel, selectedTop, selectedBottom]);
+  }, [appMode, userModel, selectedTop, selectedBottom, styleProfile]);
 
   const handleFindSimilarItems = async () => {
     if (!generatedOutfitImage || !generatedOutfitText) return;
@@ -525,6 +541,8 @@ const App: React.FC = () => {
                     closet={closet}
                     savedOutfits={savedOutfits}
                     recommendations={recommendations}
+                    styleProfile={styleProfile}
+                    onSaveStyleProfile={handleSaveStyleProfile}
                     onAddItems={handleAddItemsToCloset}
                     onUpdateItem={handleUpdateClosetItem}
                     onDeleteItem={handleDeleteItemFromCloset}

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>穿搭魔法師</title>
     
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23EDE7F6'/%3E%3Cpath d='M25,30 h50 v30 a5,5 0 0 1 -5,5 h-40 a5,5 0 0 1 -5,-5 z' fill='white'/%3E%3Cpath d='M40,20 a10,10 0 0 1 20,0' stroke='%23B39DDB' stroke-width='5' fill='none'/%3E%3Cpath d='M30,55 q20,10 40,0' stroke='%23B39DDB' stroke-width='4' fill='none'/%3E%3Cpath d='M35,60 q15,8 30,0' stroke='%23F4C7C3' stroke-width='4' fill='none'/%3E%3C/svg%3E" type="image/svg+xml">
+
     <!-- Open Graph / Facebook Meta Tags -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://service-225697716962.us-west1.run.app/">
@@ -23,9 +25,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       *:focus-visible {
-        outline: 2px solid hsl(221.2, 83.2%, 53.3%);
+        outline: 2px solid hsl(250, 80%, 75%);
         outline-offset: 2px;
-        border-radius: 0.5rem;
+        border-radius: 0.75rem;
       }
     </style>
     <script>
@@ -33,45 +35,46 @@
         theme: {
           extend: {
             colors: {
-              border: 'hsl(214.3, 31.8%, 91.4%)',
-              input: 'hsl(214.3, 31.8%, 91.4%)',
-              ring: 'hsl(221.2, 83.2%, 53.3%)',
-              background: 'hsl(210, 40%, 98%)',
-              foreground: 'hsl(222.2, 84%, 4.9%)',
+              border: 'hsl(250, 20%, 90%)',
+              input: 'hsl(250, 20%, 90%)',
+              ring: 'hsl(250, 60%, 65%)',
+              background: 'hsl(250, 30%, 98%)',
+              foreground: 'hsl(250, 15%, 25%)',
               primary: {
-                DEFAULT: 'hsl(221.2, 83.2%, 53.3%)',
-                foreground: 'hsl(210, 40%, 98%)',
+                DEFAULT: 'hsl(250, 60%, 65%)',
+                foreground: 'hsl(0, 0%, 100%)',
               },
               secondary: {
-                DEFAULT: 'hsl(210, 40%, 96.1%)',
-                foreground: 'hsl(222.2, 84%, 4.9%)',
+                DEFAULT: 'hsl(250, 25%, 94%)',
+                foreground: 'hsl(250, 15%, 25%)',
               },
               destructive: {
-                DEFAULT: 'hsl(0, 84.2%, 60.2%)',
-                foreground: 'hsl(210, 40%, 98%)',
+                DEFAULT: 'hsl(0, 80%, 75%)',
+                foreground: 'hsl(0, 0%, 100%)',
               },
               muted: {
-                DEFAULT: 'hsl(210, 40%, 96.1%)',
-                foreground: 'hsl(215.4, 16.3%, 46.9%)',
+                DEFAULT: 'hsl(250, 25%, 94%)',
+                foreground: 'hsl(250, 10%, 55%)',
               },
               accent: {
-                DEFAULT: 'hsl(210, 40%, 96.1%)',
-                foreground: 'hsl(222.2, 84%, 4.9%)',
+                DEFAULT: 'hsl(250, 30%, 96%)',
+                foreground: 'hsl(250, 15%, 25%)',
               },
               card: {
                 DEFAULT: 'hsl(0, 0%, 100%)',
-                foreground: 'hsl(222.2, 84%, 4.9%)',
+                foreground: 'hsl(250, 15%, 25%)',
               },
             },
             borderRadius: {
-              '2xl': '1rem',
-              xl: '0.75rem',
-              lg: '0.5rem',
-              md: `calc(0.5rem - 2px)`,
-              sm: `calc(0.5rem - 4px)`,
+              '2xl': '1.5rem',
+              xl: '1rem',
+              lg: '0.75rem',
+              md: '0.5rem',
+              sm: '0.375rem',
             },
             boxShadow: {
-              'subtle': '0 4px 12px rgb(0 0 0 / 0.05)',
+              'subtle': '0 8px 16px -4px rgb(125 115 165 / 0.08)',
+              'md': '0 4px 6px -1px rgb(125 115 165 / 0.08), 0 2px 4px -2px rgb(125 115 165 / 0.08)',
             },
             animation: {
               'fade-in': 'fadeIn 0.5s ease-in-out',

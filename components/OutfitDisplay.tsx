@@ -42,11 +42,13 @@ const addWatermark = (base64Image: string): Promise<string> => {
             if (ctx) {
                 ctx.drawImage(img, 0, 0);
                 const watermarkText = '由 穿搭魔法師 生成';
-                ctx.font = `${Math.max(14, canvas.width / 50)}px sans-serif`;
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = `${Math.max(16, canvas.width / 45)}px sans-serif`;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'bottom';
-                ctx.fillText(watermarkText, canvas.width - 10, canvas.height - 10);
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(watermarkText, canvas.width - 12, canvas.height - 12);
             }
             resolve(canvas.toDataURL('image/png'));
         };
@@ -60,7 +62,7 @@ const addWatermark = (base64Image: string): Promise<string> => {
 const ActionButton: React.FC<{ onClick: () => void; 'aria-label': string; children: React.ReactNode; }> = ({ onClick, 'aria-label': ariaLabel, children }) => (
     <button
         onClick={onClick}
-        className="p-2 bg-black/40 text-white rounded-full hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-muted focus:ring-white transition-all"
+        className="p-2 bg-card/80 text-foreground backdrop-blur-sm rounded-full hover:bg-card/100 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-muted focus:ring-primary transition-all"
         aria-label={ariaLabel}
     >
         {children}
@@ -182,7 +184,7 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
               {!isLoading && !generatedOutfitImage && <SparklesIcon className="w-24 h-24 text-muted-foreground/30" />}
             </ImagePanel>
              {generatedOutfitImage && (
-                <div className="absolute top-3 right-3 flex flex-col space-y-2">
+                <div className="absolute top-4 right-4 flex flex-col space-y-2">
                     <ActionButton onClick={handleDownload} aria-label="下載生成圖片">
                         <DownloadIcon className="w-5 h-5" />
                     </ActionButton>
@@ -207,11 +209,11 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
       )}
 
       {generatedOutfitText && !error && (
-        <div className="my-4 p-3 bg-primary/10 border border-primary/20 text-primary/90 rounded-lg">
+        <div className="my-4 p-4 bg-primary/10 rounded-xl">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-semibold mb-1 text-primary">AI 造型師筆記：</p>
-                <p className="text-sm whitespace-pre-wrap">{generatedOutfitText}</p>
+                <p className="text-sm whitespace-pre-wrap text-foreground/90">{generatedOutfitText}</p>
               </div>
               <button 
                 onClick={onFindSimilar}
@@ -227,9 +229,8 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
       <button
         onClick={onGenerate}
         disabled={!isActionable || isLoading}
-        // FIX: Corrected the ternary operator syntax which had an extra ':' causing a compile error.
-        className={`w-full flex items-center justify-center space-x-2 text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/50
-          ${!isActionable || isLoading ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+        className={`w-full flex items-center justify-center space-x-2 text-lg font-bold py-3 px-6 rounded-xl transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/40
+          ${!isActionable || isLoading ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/30'}`}
       >
         {isLoading ? <LoadingSpinner variant="light" /> : <SparklesIcon className="h-6 w-6" />}
         <span>{isLoading ? '生成中...' : (isBasicMode ? '獲取 AI 穿搭' : '生成我的穿搭')}</span>

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { ClothingItem, StyleRecommendation, ClothingType, ShoppingAssistantResult, OotdAnalysisResult, UpgradeSuggestion } from "../types";
+import { ClothingItem, StyleRecommendation, ClothingType, ShoppingAssistantResult, OotdAnalysisResult, UpgradeSuggestion, StyleProfile } from "../types";
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable not set");
@@ -121,26 +121,37 @@ export async function generateVirtualTryOn(
 }
 
 
-export async function generateAndRecommendOutfit(base64ImageData: string, mimeType: string): Promise<{ imageBase64: string | null; text: string | null }> {
+export async function generateAndRecommendOutfit(base64ImageData: string, mimeType: string, styleProfile?: StyleProfile): Promise<{ imageBase64: string | null; text: string | null }> {
     // Step 1: Use a text model to generate a detailed outfit description.
-    const styles = [
-        '休閒時尚', '街頭風', '商務休閒', '極簡主義', '波希米亞風',
-        '學院風', '運動休閒', '復古風格', '智慧休閒', '搖滾風',
-        '經典風', '前衛風', '混搭風', '都會精緻風'
-    ];
-    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
     const currentSeason = getCurrentSeason();
 
-    const designPrompt = `你是一位 AI 時尚設計師。根據這張模特兒的照片，為他們設計一套適合「${currentSeason}」的「${randomStyle}」風格穿搭。
+    let designPrompt = `你是一位 AI 時尚設計師。根據這張模特兒的照片，為他們設計一套適合「${currentSeason}」的穿搭。`;
     
-你的任務是只回傳一個清晰、具體的穿搭文字描述，供另一位 AI 造型師進行圖片編輯。
-
-描述中必須包含：
-1.  **上半身**：詳細描述衣物的款式、顏色、材質。
-2.  **下半身**：詳細描述衣物的款式、顏色、材質。
-3.  **鞋款**：建議搭配的鞋款。
-
-請直接輸出穿搭描述，不要包含任何額外的問候語或標題。例如：「一件米白色的寬鬆亞麻襯衫，搭配一條深藍色的九分斜紋褲，腳上穿著一雙白色的帆布鞋。」`;
+    if (styleProfile) {
+        const profileInstructions: string[] = [];
+        if (styleProfile.keywords.length > 0) {
+            profileInstructions.push(`偏好風格: ${styleProfile.keywords.join('、')}`);
+        }
+        if (styleProfile.occasion) {
+            profileInstructions.push(`穿搭場合: ${styleProfile.occasion}`);
+        }
+        if (styleProfile.notes) {
+            profileInstructions.push(`個人備註與限制: ${styleProfile.notes}`);
+        }
+        if (profileInstructions.length > 0) {
+            designPrompt += `\n\n**重要：** 請嚴格遵守以下使用者個人風格偏好：\n- ${profileInstructions.join('\n- ')}`;
+        }
+    } else {
+        const styles = [
+            '休閒時尚', '街頭風', '商務休閒', '極簡主義', '波希米亞風',
+            '學院風', '運動休閒', '復古風格', '智慧休閒', '搖滾風',
+            '經典風', '前衛風', '混搭風', '都會精緻風'
+        ];
+        const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+        designPrompt += ` 請以「${randomStyle}」風格為主。`
+    }
+    
+    designPrompt += `\n\n你的任務是只回傳一個清晰、具體的穿搭文字描述，供另一位 AI 造型師進行圖片編輯。\n\n描述中必須包含：\n1. **上半身**：詳細描述衣物的款式、顏色、材質。\n2. **下半身**：詳細描述衣物的款式、顏色、材質。\n3. **鞋款**：建議搭配的鞋款。\n\n請直接輸出穿搭描述，不要包含任何額外的問候語或標題。例如：「一件米白色的寬鬆亞麻襯衫，搭配一條深藍色的九分斜紋褲，腳上穿著一雙白色的帆布鞋。」`;
 
     const designResponse = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -187,16 +198,32 @@ export async function generateAndRecommendOutfit(base64ImageData: string, mimeTy
 }
 
 
-export async function getStyleRecommendations(closet: ClothingItem[], feedback?: Record<string, 'liked' | 'disliked'>): Promise<StyleRecommendation[]> {
+export async function getStyleRecommendations(closet: ClothingItem[], feedback?: Record<string, 'liked' | 'disliked'>, styleProfile?: StyleProfile): Promise<StyleRecommendation[]> {
     const closetDescriptions = closet.map(item => `id: "${item.id}", 描述: "${item.description}" (${item.type === 'TOP' ? '上半身' : '下半身'})`).join('\n');
     
     let prompt = `你是一位時尚造型師。請根據以下的衣物單品，推薦 3 套風格獨特的穿搭。對於每一套推薦，請提供一個 "styleName" (風格名稱)、一個 "description" (描述)，以及要組合的衣物的確切 "topId" 和 "bottomId" (來自下方清單)。`;
+
+    if (styleProfile) {
+        const profileInstructions: string[] = [];
+        if (styleProfile.keywords.length > 0) {
+            profileInstructions.push(`偏好風格: ${styleProfile.keywords.join('、')}`);
+        }
+        if (styleProfile.occasion) {
+            profileInstructions.push(`穿搭場合: ${styleProfile.occasion}`);
+        }
+        if (styleProfile.notes) {
+            profileInstructions.push(`個人備註與限制: ${styleProfile.notes}`);
+        }
+        if (profileInstructions.length > 0) {
+            prompt += `\n\n請優先考慮以下使用者的個人風格偏好：\n- ${profileInstructions.join('\n- ')}`;
+        }
+    }
 
     if (feedback && Object.keys(feedback).length > 0) {
         const feedbackLines = Object.entries(feedback).map(([styleName, pref]) =>
             `- 對於「${styleName}」風格，使用者表示${pref === 'liked' ? '喜歡' : '不喜歡'}。`
         );
-        prompt += `\n\n請務必考慮以下使用者的偏好：\n${feedbackLines.join('\n')}\n請生成全新的、符合使用者偏好的推薦。`;
+        prompt += `\n\n同時，請務必考慮以下使用者的偏好：\n${feedbackLines.join('\n')}\n請生成全新的、符合使用者偏好的推薦。`;
     }
 
     prompt += `\n\n我的衣櫥 (格式為: id: "uuid", 描述: "desc" (類型)):\n${closetDescriptions}\n\n請回傳一個符合 schema 的有效 JSON 陣列。如果一套穿搭只用到上半身，請省略 bottomId，反之亦然。`;
@@ -503,38 +530,33 @@ export async function analyzeOotd(base64ImageData: string, mimeType: string): Pr
     return { ...analysisResult, upgradeSuggestions: [] };
   }
   
-  // --- Call 2: Generate Upgraded Image ---
-  const suggestionToVisualize = analysisResult.upgradeSuggestions[0].suggestion;
-  const imageEditPrompt = `**任務：視覺化造型升級**
+  // --- Call 2: Generate Upgraded Images for ALL suggestions in parallel ---
+  const imageGenerationPromises = analysisResult.upgradeSuggestions.map(async (suggestion: { suggestion: string }): Promise<UpgradeSuggestion> => {
+    try {
+      const imageEditPrompt = `**任務：視覺化造型升級**
 **指令：**
 1.  **應用變更：** 根據以下建議，對主圖中的穿搭進行細微、精緻的修改：
-    **建議：** "${suggestionToVisualize}"
+    **建議：** "${suggestion.suggestion}"
 2.  **嚴格限制：** 這是「升級」而不是「替換」。盡最大可能保持原始衣物，只修改建議中提到的部分。絕對不要更改人物的姿勢、臉部、髮型或背景。`;
 
-  const { imageBase64 } = await callImageEditAPI(base64ImageData, mimeType, imageEditPrompt);
+      const { imageBase64 } = await callImageEditAPI(base64ImageData, mimeType, imageEditPrompt);
 
-  if (!imageBase64) {
-      // Don't throw an error, just return the text part
-      console.warn("AI 成功分析了穿搭，但無法生成升級後的預覽圖。");
       return {
-          ...analysisResult,
-          upgradeSuggestions: analysisResult.upgradeSuggestions.map((s: {suggestion: string}) => ({ ...s, upgradedImageBase64: '' })),
+        suggestion: suggestion.suggestion,
+        upgradedImageBase64: imageBase64 || '',
       };
-  }
+    } catch (error) {
+      console.error(`Failed to generate image for suggestion: "${suggestion.suggestion}"`, error);
+      return {
+        suggestion: suggestion.suggestion,
+        upgradedImageBase64: '', // Gracefully fail for this specific image
+      };
+    }
+  });
+
+  const finalSuggestions = await Promise.all(imageGenerationPromises);
 
   // --- Combine Results ---
-  const finalSuggestions: UpgradeSuggestion[] = [{
-      suggestion: suggestionToVisualize,
-      upgradedImageBase64: imageBase64,
-  }];
-
-  if (analysisResult.upgradeSuggestions[1]) {
-      finalSuggestions.push({
-          suggestion: analysisResult.upgradeSuggestions[1].suggestion,
-          upgradedImageBase64: '', // No image for the second one
-      });
-  }
-
   return {
     critique: analysisResult.critique,
     identifiedItems: analysisResult.identifiedItems,

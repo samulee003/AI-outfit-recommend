@@ -96,16 +96,17 @@ export const OotdAnalyzer: React.FC<OotdAnalyzerProps> = ({ onAnalyze, onAddItem
                             </div>
                         )}
                         {activeTab === 'upgrade' && (
-                           <div>
+                           <div className="p-4 bg-muted/50 rounded-lg">
                                 {result.upgradeSuggestions.length > 0 ? (
-                                    result.upgradeSuggestions.map((s, index) => (
-                                        <div key={index} className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                                            <div>
+                                    <div className="space-y-6">
+                                    {result.upgradeSuggestions.map((s, index) => (
+                                        <div key={index} className={index > 0 ? "pt-6 border-t border-border/60" : ""}>
+                                            <div className="space-y-2">
                                                <h3 className="font-semibold text-primary mb-2">升級建議 #{index + 1}</h3>
                                                <p className="text-sm italic">"{s.suggestion}"</p>
                                             </div>
-                                           {s.upgradedImageBase64 && (
-                                                <div className="flex flex-col md:flex-row gap-4">
+                                           {s.upgradedImageBase64 ? (
+                                                <div className="mt-4 flex flex-col md:flex-row gap-4">
                                                     <div className="flex-1">
                                                         <h4 className="text-xs text-center font-semibold text-muted-foreground mb-1">原始穿搭</h4>
                                                         <img src={ootdImage.dataUrl} alt="Original OOTD" className="rounded-lg w-full" />
@@ -115,9 +116,14 @@ export const OotdAnalyzer: React.FC<OotdAnalyzerProps> = ({ onAnalyze, onAddItem
                                                         <img src={`data:image/png;base64,${s.upgradedImageBase64}`} alt="Upgraded OOTD" className="rounded-lg w-full" />
                                                     </div>
                                                 </div>
+                                           ) : (
+                                                <div className="mt-4 p-3 text-center bg-card/50 rounded-md text-xs text-muted-foreground">
+                                                    (無法生成此建議的視覺預覽)
+                                                </div>
                                            )}
                                         </div>
-                                    ))
+                                    ))}
+                                    </div>
                                 ) : (
                                     <p className="text-sm text-muted-foreground text-center py-8">AI 認為您目前的穿搭已經很完美，沒有需要升級的地方！</p>
                                 )}
