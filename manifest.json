@@ -1,0 +1,23 @@
+{
+  "name": "穿搭魔法師",
+  "short_name": "穿搭魔法師",
+  "description": "一個由 Google Gemini 驅動的智慧衣櫥管理系統，具備虛擬試穿功能。使用者可以上傳自己的照片來建立虛擬模型，選擇衣物單品，並即時預覽不同的穿搭效果。",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f8f7fc",
+  "theme_color": "#a08cdb",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='38.4' fill='%23a08cdb'/%3E%3Cg transform='translate(21, 21) scale(1.5)'%3E%3Cpath d='M25,30 h50 v30 a5,5 0 0 1 -5,5 h-40 a5,5 0 0 1 -5,-5 z' fill='white'/%3E%3Cpath d='M40,20 a10,10 0 0 1 20,0' stroke='white' stroke-width='5' fill='none'/%3E%3Cpath d='M30,55 q20,10 40,0' stroke='white' stroke-width='4' fill='none'/%3E%3Cpath d='M35,60 q15,8 30,0' stroke='%23d2c8ee' stroke-width='4' fill='none'/%3E%3C/g%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='102.4' fill='%23a08cdb'/%3E%3Cg transform='translate(56, 56) scale(4)'%3E%3Cpath d='M25,30 h50 v30 a5,5 0 0 1 -5,5 h-40 a5,5 0 0 1 -5,-5 z' fill='white'/%3E%3Cpath d='M40,20 a10,10 0 0 1 20,0' stroke='white' stroke-width='5' fill='none'/%3E%3Cpath d='M30,55 q20,10 40,0' stroke='white' stroke-width='4' fill='none'/%3E%3Cpath d='M35,60 q15,8 30,0' stroke='%23d2c8ee' stroke-width='4' fill='none'/%3E%3C/g%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

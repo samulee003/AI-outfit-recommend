@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>穿搭魔法師</title>
     
+    <meta name="theme-color" content="#a08cdb">
+    <link rel="manifest" href="manifest.json">
+
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23EDE7F6'/%3E%3Cpath d='M25,30 h50 v30 a5,5 0 0 1 -5,5 h-40 a5,5 0 0 1 -5,-5 z' fill='white'/%3E%3Cpath d='M40,20 a10,10 0 0 1 20,0' stroke='%23B39DDB' stroke-width='5' fill='none'/%3E%3Cpath d='M30,55 q20,10 40,0' stroke='%23B39DDB' stroke-width='4' fill='none'/%3E%3Cpath d='M35,60 q15,8 30,0' stroke='%23F4C7C3' stroke-width='4' fill='none'/%3E%3C/svg%3E" type="image/svg+xml">
 
     <!-- Open Graph / Facebook Meta Tags -->
@@ -103,5 +106,18 @@
   <body class="bg-background">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('service-worker.js')
+            .then(registration => {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            })
+            .catch(error => {
+              console.log('ServiceWorker registration failed: ', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>
